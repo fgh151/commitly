@@ -1,0 +1,57 @@
+name: commitly
+description: "Git based task manager"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # HTTP & API
+  dio: ^5.4.0
+  http: ^1.2.0
+
+  # State management
+  flutter_riverpod: ^2.5.0
+  riverpod_annotation: ^2.3.0
+
+  # Navigation
+  go_router: ^14.0.0
+
+  # Secure storage (dev: shared_preferences with obfuscation)
+  shared_preferences: ^2.2.0
+  crypto: ^3.0.3
+
+  # Markdown
+  markdown: ^7.2.2
+
+  # File handling
+  file_picker: ^8.0.0
+  path_provider: ^2.1.0
+  uuid: ^4.3.0
+
+  # Formatting
+  intl: ^0.19.0
+
+  # Code generation
+  freezed_annotation: ^2.4.0
+  json_annotation: ^4.8.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # Code generation
+  build_runner: ^2.4.0
+  freezed: ^2.4.0
+  json_serializable: ^6.7.0
+  riverpod_generator: ^2.3.0
+
+flutter:
+  uses-material-design: true
