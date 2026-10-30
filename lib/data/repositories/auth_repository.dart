@@ -23,34 +23,42 @@ class AuthRepository {
   static const _keyConfig = 'git_service_config';
   static const _keyPat = 'git_pat';
 
-  /// Simple obfuscation for dev purposes.
+  /// Simple obfuscation for dev purposes only.
   /// NOT secure - for production use Keychain/Keystore.
   String _obfuscate(String input) {
-    final bytes = utf8.encode(input);
-    final hash = sha256.convert(bytes);
-    return base64.encode(hash.bytes);
+    // Base64 encode for dev (easily reversible)
+    return base64.encode(utf8.encode(input));
   }
 
   String _deobfuscate(String input) {
-    // For dev, we store the actual token directly
-    return input;
+    // Base64 decode
+    try {
+      return utf8.decode(base64.decode(input));
+    } catch (e) {
+      return input;
+    }
   }
 
   /// Save service config and PAT
   Future<void> saveConfig(GitServiceConfig config, String pat) async {
+    print('💾 Saving credentials...');
     await _prefs.setString(_keyConfig, jsonEncode(config.toJson()));
-    // Store PAT with simple obfuscation (dev only!)
     await _prefs.setString(_keyPat, _obfuscate(pat));
+    print('✅ Credentials saved');
   }
 
   /// Load saved service config
   Future<GitServiceConfig?> loadConfig() async {
     final jsonString = await _prefs.getString(_keyConfig);
+    print('📖 loadConfig: jsonString=$jsonString');
     if (jsonString == null) return null;
     try {
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
-      return GitServiceConfig.fromJson(json);
+      final config = GitServiceConfig.fromJson(json);
+      print('✅ Config loaded: ${config.type} at ${config.baseUrl}');
+      return config;
     } catch (e) {
+      print('❌ Config load error: $e');
       return null;
     }
   }
@@ -58,8 +66,11 @@ class AuthRepository {
   /// Load saved PAT
   Future<String?> loadPat() async {
     final obfuscated = await _prefs.getString(_keyPat);
+    print('📖 loadPat: obfuscated=${obfuscated != null ? "[HIDDEN]" : "null"}');
     if (obfuscated == null) return null;
-    return _deobfuscate(obfuscated);
+    final pat = _deobfuscate(obfuscated);
+    print('✅ PAT loaded (first 10 chars: ${pat.substring(0, 10)}...)');
+    return pat;
   }
 
   /// Check if credentials are stored

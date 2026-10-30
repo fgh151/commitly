@@ -54,7 +54,10 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
     // React to state change
     final authState = ref.read(authStateProvider);
     if (authState.status == AuthStatus.authenticated) {
-      if (mounted) context.go('/projects');
+      if (mounted) {
+        // Use goNamed with the route name defined in app.dart
+        context.goNamed('projects');
+      }
     }
   }
 

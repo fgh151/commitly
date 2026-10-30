@@ -55,12 +55,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _initialize() async {
     final repo = _ref.read(authRepositoryProvider);
     try {
-      final hasCreds = await repo.hasCredentials();
-      if (hasCreds) {
-        state = state.copyWith(status: AuthStatus.authenticated);
+      // Load saved config and PAT
+      final config = await repo.loadConfig();
+      final pat = await repo.loadPat();
+
+      if (config != null && pat != null) {
+        print('🔄 Restoring saved credentials...');
+
+        // Validate token is still valid
+        try {
+          final isValid = await repo.validateCredentials(config, pat);
+          if (isValid) {
+            final gitService = GitServiceFactory.create(config, pat);
+            state = state.copyWith(
+              status: AuthStatus.authenticated,
+              config: config,
+              gitService: gitService,
+              error: null,
+            );
+            print('✅ Credentials restored successfully');
+          } else {
+            print('❌ Token invalid, clearing credentials');
+            await repo.clearCredentials();
+            state = const AuthState(status: AuthStatus.unauthenticated);
+          }
+        } catch (e) {
+          // If validation fails (network issue), still restore but warn
+          print('⚠️ Could not validate token: $e');
+          final gitService = GitServiceFactory.create(config, pat);
+          state = state.copyWith(
+            status: AuthStatus.authenticated,
+            config: config,
+            gitService: gitService,
+            error: 'Token not validated (offline mode)',
+          );
+        }
+      } else {
+        print('🔑 No saved credentials found');
+        state = const AuthState(status: AuthStatus.unauthenticated);
       }
     } catch (e) {
-      state = state.copyWith(status: AuthStatus.unauthenticated, error: e.toString());
+      print('❌ Error restoring credentials: $e');
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        error: e.toString(),
+      );
     }
   }
 
