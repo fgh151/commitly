@@ -74,13 +74,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
       );
 
       if (mounted) {
-        // Invalidate cache and wait for fresh data before exiting edit mode
-        ref.invalidate(tasksProvider(widget.projectId));
-        try {
-          await ref.read(tasksProvider(widget.projectId).future);
-        } catch (_) {
-          // Ignore — provider may already be resolving
-        }
+        // Refresh cache and wait for fresh data before exiting edit mode
+        await ref.read(taskCacheProvider.notifier).refresh(widget.projectId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Task saved')),

@@ -162,8 +162,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final repo = _ref.read(authRepositoryProvider);
     await repo.clearCredentials();
     await state.gitService?.dispose();
-    // Clear project cache
+    // Clear caches
     _ref.read(projectCacheProvider.notifier).clear();
+    _ref.read(taskCacheProvider.notifier).clear();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }
@@ -277,15 +278,140 @@ final projectsProvider = FutureProvider<List<Project>>((ref) async {
 final selectedProjectIdProvider = StateProvider<String?>((ref) => null);
 
 // Tasks
+class TaskCache extends StateNotifier<Map<String, AsyncValue<List<Task>>>> {
+  final Ref _ref;
+
+  TaskCache(this._ref) : super({});
+
+  AsyncValue<List<Task>> getTaskState(String projectId) {
+    return state[projectId] ?? const AsyncValue.loading();
+  }
+
+  List<Task>? getTaskData(String projectId) {
+    return state[projectId]?.value;
+  }
+
+  Future<void> load(String projectId) async {
+    // Return cached data if available
+    final cached = await _loadCached(projectId);
+    if (cached != null) {
+      state = {...state, projectId: AsyncValue.data(cached)};
+      return;
+    }
+
+    // Not cached — trigger fetch
+    await _fetch(projectId);
+  }
+
+  Future<void> _fetch(String projectId) async {
+    // Mark loading
+    state = {...state, projectId: const AsyncValue.loading()};
+    try {
+      final authState = _ref.read(authStateProvider);
+      if (authState.gitService == null) {
+        state = {...state, projectId: AsyncValue.error('Not authenticated', StackTrace.current)};
+        return;
+      }
+      final repo = TaskRepository(authState.gitService!);
+      final tasks = await repo.fetchTasks(projectId);
+      await _saveCached(projectId, tasks);
+      state = {...state, projectId: AsyncValue.data(tasks)};
+    } catch (e, st) {
+      state = {...state, projectId: AsyncValue.error(e, st)};
+    }
+  }
+
+  Future<void> refresh(String projectId) async {
+    await _fetch(projectId);
+  }
+
+  Future<void> invalidate(String projectId) async {
+    state = {...state, projectId: const AsyncValue.loading()};
+    await _fetch(projectId);
+  }
+
+  void clear() {
+    state = {};
+    try {
+      final prefs = _ref.read(sharedPreferencesProvider);
+      prefs.remove('tasks_cache');
+    } catch (_) {}
+  }
+
+  Future<void> clearProject(String projectId) async {
+    final newState = Map<String, AsyncValue<List<Task>>>.from(state);
+    newState.remove(projectId);
+    state = newState;
+    try {
+      final prefs = _ref.read(sharedPreferencesProvider);
+      final json = await prefs.getString('tasks_cache');
+      if (json != null) {
+        final map = jsonDecode(json) as Map<String, dynamic>;
+        map.remove(projectId);
+        prefs.setString('tasks_cache', jsonEncode(map));
+      }
+    } catch (_) {}
+  }
+
+  Future<List<Task>?> _loadCached(String projectId) async {
+    try {
+      final prefs = _ref.read(sharedPreferencesProvider);
+      final json = await prefs.getString('tasks_cache');
+      if (json == null) return null;
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      final projectEntry = map[projectId] as Map<String, dynamic>?;
+      if (projectEntry == null) return null;
+      final ts = DateTime.tryParse(projectEntry['ts'] as String);
+      if (ts == null || DateTime.now().difference(ts).inMinutes > 30) return null;
+      final list = projectEntry['tasks'] as List<dynamic>?;
+      if (list == null) return null;
+      return list.map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveCached(String projectId, List<Task> tasks) async {
+    try {
+      final prefs = _ref.read(sharedPreferencesProvider);
+      final json = await prefs.getString('tasks_cache');
+      Map<String, dynamic> fullMap;
+      if (json != null) {
+        fullMap = jsonDecode(json) as Map<String, dynamic>;
+      } else {
+        fullMap = {};
+      }
+      fullMap[projectId] = {
+        'ts': DateTime.now().toUtc().toIso8601String(),
+        'tasks': tasks.map((t) => t.toJson()).toList(),
+      };
+      prefs.setString('tasks_cache', jsonEncode(fullMap));
+    } catch (_) {
+      // ignore
+    }
+  }
+}
+
+final taskCacheProvider = StateNotifierProvider<TaskCache, Map<String, AsyncValue<List<Task>>>>((ref) {
+  return TaskCache(ref);
+});
+
 final taskRepositoryProvider = Provider<TaskRepository>((ref) {
   final gitService = ref.read(authStateProvider).gitService;
   if (gitService == null) throw Exception('Not authenticated');
   return TaskRepository(gitService);
 });
 
-final tasksProvider = FutureProvider.family<List<dynamic>, String>((ref, projectId) async {
+final tasksProvider = FutureProvider.family<List<Task>, String>((ref, projectId) async {
+  final tasks = ref.read(taskCacheProvider).values.firstOrNull?.value;
+  // This is a fallback; the actual data comes from taskCacheProvider
   final repo = ref.read(taskRepositoryProvider);
   return repo.fetchTasks(projectId);
+});
+
+// Convenience provider to watch cached tasks for a specific project
+final cachedTasksProvider = Provider.family<AsyncValue<List<Task>>, String>((ref, projectId) {
+  return ref.watch(taskCacheProvider)[projectId] ?? const AsyncValue.loading();
 });
 
 final taskDetailProvider = FutureProvider.family<Task?, String>((ref, projectId) async {

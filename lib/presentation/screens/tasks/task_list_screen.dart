@@ -19,8 +19,17 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   String _filterAssignee = '';
 
   @override
+  void initState() {
+    super.initState();
+    // Load tasks from cache (or fetch if not cached)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(taskCacheProvider.notifier).load(widget.projectId);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final tasksAsync = ref.watch(tasksProvider(widget.projectId));
+    final tasksAsync = ref.watch(taskCacheProvider)[widget.projectId] ?? const AsyncValue.loading();
     final projectFullName = widget.projectId.split('/').last;
 
     return Scaffold(
@@ -34,7 +43,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
               final syncNotifier = ref.read(syncStateProvider.notifier);
               await syncNotifier.push(widget.projectId);
               if (mounted) {
-                ref.invalidate(tasksProvider(widget.projectId));
+                await ref.read(taskCacheProvider.notifier).refresh(widget.projectId);
               }
             },
           ),
@@ -129,7 +138,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             final repo = ref.read(taskRepositoryProvider);
             final newNumber = await repo.createTask(widget.projectId);
             if (mounted) {
-              ref.invalidate(tasksProvider(widget.projectId));
+              // Refresh cache after creating a new task
+              await ref.read(taskCacheProvider.notifier).refresh(widget.projectId);
               final encoded = Uri.encodeComponent(newNumber.toString().padLeft(3, '0'));
               context.pushNamed('task-detail', pathParameters: {
                 'projectId': widget.projectId,
