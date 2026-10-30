@@ -24,6 +24,7 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _assigneeController;
   bool _isEditing = false;
@@ -33,6 +34,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _titleController = TextEditingController();
     _descriptionController = TextEditingController();
     _assigneeController = TextEditingController();
     // Auto-enter edit mode for new tasks (empty description)
@@ -42,29 +44,49 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _titleController.dispose();
     _descriptionController.dispose();
     _assigneeController.dispose();
     super.dispose();
   }
 
-  Future<void> _saveDescription() async {
+  Future<void> _saveAll() async {
     setState(() => _isSaving = true);
     try {
-      print('💾 Saving description...');
+      final repo = ref.read(taskRepositoryProvider);
+      final title = _titleController.text.isEmpty
+          ? 'Task ${widget.taskNumber}'
+          : _titleController.text;
+
+      print('💾 Saving task...');
       print('   projectId: ${widget.projectId}');
       print('   taskNumber: ${widget.taskNumber}');
+      print('   title: $title');
       print('   description: ${_descriptionController.text.substring(0, _descriptionController.text.length.clamp(0, 100))}...');
-      final repo = ref.read(taskRepositoryProvider);
-      await repo.updateDescription(
+
+      // Save everything in a single commit
+      await repo.updateTask(
         widget.projectId,
         widget.taskNumber,
-        _descriptionController.text,
+        description: _descriptionController.text,
+        title: title,
+        assignee: _assigneeController.text.isEmpty ? null : _assigneeController.text,
       );
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Description saved')),
-        );
-        setState(() => _isEditing = false);
+        // Invalidate cache and wait for fresh data before exiting edit mode
+        ref.invalidate(tasksProvider(widget.projectId));
+        try {
+          await ref.read(tasksProvider(widget.projectId).future);
+        } catch (_) {
+          // Ignore — provider may already be resolving
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Task saved')),
+          );
+          setState(() => _isEditing = false);
+        }
       }
     } catch (e, stack) {
       print('❌ Save error: $e');
@@ -113,6 +135,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
           (t) => t.number == widget.taskNumber,
           orElse: () => Task(
             number: widget.taskNumber,
+            title: '',
             description: '',
             tags: [],
             createdAt: DateTime.now(),
@@ -123,6 +146,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
 
         _descriptionController.text = task.description;
         _assigneeController.text = task.assignee ?? '';
+
+        _titleController.text = task.title;
 
         return Scaffold(
           appBar: AppBar(
@@ -146,7 +171,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
                           )
                         : const Icon(Icons.save, size: 18),
                     label: const Text('Save'),
-                    onPressed: _isSaving ? null : _saveDescription,
+                    onPressed: _isSaving ? null : _saveAll,
                   ),
                   TextButton(
                     onPressed: () {
@@ -194,6 +219,17 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
                   const Text(
                     'Metadata',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  // Title
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      hintText: 'Task title',
+                      prefixIcon: Icon(Icons.title),
+                    ),
+                    onSubmitted: (_) => _saveAll(),
                   ),
                   const SizedBox(height: 12),
                   // Assignee

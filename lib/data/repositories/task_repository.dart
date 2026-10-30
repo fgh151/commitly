@@ -13,18 +13,14 @@ class TaskRepository {
     final numbers = await _gitService.listTaskNumbers(projectId);
     final tasks = <Task>[];
 
-    print('📋 Fetching ${numbers.length} tasks for $projectId');
-
     for (final number in numbers) {
       try {
-        print('  📄 Fetching task $number...');
         final metadata = await _gitService.readMetadata(projectId, number);
-        print('  ✅ Task $number metadata: $metadata');
         final description = await _gitService.readDescription(projectId, number);
-        print('  ✅ Task $number description: ${description.substring(0, description.length.clamp(0, 50))}...');
 
         tasks.add(Task(
           number: number,
+          title: metadata['title'] as String? ?? '',
           description: description,
           assignee: metadata['assignee'] as String?,
           tags: List<String>.from(metadata['tags'] as List? ?? []),
@@ -34,15 +30,11 @@ class TaskRepository {
               DateTime.now(),
           projectId: projectId,
         ));
-      } catch (e, stack) {
-        print('  ❌ Error loading task $number: $e');
-        print('     Stack: $stack');
-        // Skip tasks that can't be loaded
+      } catch (e) {
         continue;
       }
     }
 
-    print('📋 Loaded ${tasks.length} tasks');
     return tasks;
   }
 
@@ -53,6 +45,7 @@ class TaskRepository {
 
     return Task(
       number: taskNumber,
+      title: metadata['title'] as String? ?? '',
       description: description,
       assignee: metadata['assignee'] as String?,
       tags: List<String>.from(metadata['tags'] as List? ?? []),
@@ -67,6 +60,7 @@ class TaskRepository {
   /// Create a new task (returns the new task number)
   Future<int> createTask(String projectId) async {
     final nextNumber = await _gitService.getNextTaskNumber(projectId);
+    final folderName = nextNumber.toString().padLeft(3, '0');
 
     // Create description.md
     await _gitService.writeDescription(
@@ -75,10 +69,11 @@ class TaskRepository {
       '# Task $nextNumber\n\n',
     );
 
-    // Create metadata.json
+    // Create metadata.json with default title
     final now = DateTime.now().toUtc().toIso8601String();
     await _gitService.writeMetadata(projectId, nextNumber, {
       'id': nextNumber,
+      'title': 'Task $nextNumber',
       'assignee': null,
       'tags': <String>[],
       'created': now,
@@ -102,14 +97,39 @@ class TaskRepository {
     await _gitService.writeMetadata(projectId, taskNumber, metadata);
   }
 
-  /// Update task metadata (assignee, tags)
+  /// Update task description and metadata in a single commit
+  Future<void> updateTask(
+    String projectId,
+    int taskNumber, {
+    String? description,
+    String? title,
+    String? assignee,
+    List<String>? tags,
+  }) async {
+    // Write description if changed
+    if (description != null) {
+      await _gitService.writeDescription(projectId, taskNumber, description);
+    }
+
+    // Read, merge, and write metadata (single commit)
+    final metadata = await _gitService.readMetadata(projectId, taskNumber);
+    if (title != null) metadata['title'] = title;
+    if (assignee != null) metadata['assignee'] = assignee;
+    if (tags != null) metadata['tags'] = tags;
+    metadata['updated'] = DateTime.now().toUtc().toIso8601String();
+    await _gitService.writeMetadata(projectId, taskNumber, metadata);
+  }
+
+  /// Update task metadata (title, assignee, tags)
   Future<void> updateMetadata(
     String projectId,
     int taskNumber, {
+    String? title,
     String? assignee,
     List<String>? tags,
   }) async {
     final metadata = await _gitService.readMetadata(projectId, taskNumber);
+    if (title != null) metadata['title'] = title;
     if (assignee != null) metadata['assignee'] = assignee;
     if (tags != null) metadata['tags'] = tags;
     metadata['updated'] = DateTime.now().toUtc().toIso8601String();

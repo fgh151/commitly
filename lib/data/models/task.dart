@@ -1,6 +1,7 @@
 /// Represents a task within a project.
 class Task {
   final int number; // 1, 2, 3 — used as folder name "001/"
+  final String title; // Task title
   final String description; // Markdown content
   final String? assignee; // Username
   final List<String> tags;
@@ -10,6 +11,7 @@ class Task {
 
   const Task({
     required this.number,
+    required this.title,
     required this.description,
     this.assignee,
     required this.tags,
@@ -31,6 +33,7 @@ class Task {
     final tagsJson = json['tags'] as List<dynamic>?;
     return Task(
       number: json['id'] as int? ?? json['number'] as int? ?? 0,
+      title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
       assignee: json['assignee'] as String?,
       tags: tagsJson?.map((e) => e as String).toList() ?? [],
@@ -48,6 +51,7 @@ class Task {
     return {
       'id': number,
       'number': number,
+      'title': title,
       'description': description,
       'assignee': assignee,
       'tags': tags,
@@ -58,6 +62,7 @@ class Task {
   }
 
   Task copyWith({
+    String? title,
     String? description,
     String? assignee,
     List<String>? tags,
@@ -67,6 +72,7 @@ class Task {
   }) {
     return Task(
       number: number,
+      title: title ?? this.title,
       description: description ?? this.description,
       assignee: assignee ?? this.assignee,
       tags: tags ?? this.tags,
@@ -74,11 +80,5 @@ class Task {
       updatedAt: updatedAt ?? this.updatedAt,
       projectId: projectId ?? this.projectId,
     );
-  }
-
-  /// First line of description as a title
-  String get title {
-    final firstLine = description.split('\n').first.trim();
-    return firstLine.startsWith('# ') ? firstLine.substring(2).trim() : firstLine;
   }
 }
