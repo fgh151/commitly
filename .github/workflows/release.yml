@@ -147,9 +147,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-#            artifacts/apk/app-release.apk
             artifacts/windows/*.zip
             artifacts/macos/commitly.dmg
+#            artifacts/apk/app-release.apk
           generate_release_notes: true
           draft: false
           prerelease: false
