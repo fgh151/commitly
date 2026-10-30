@@ -235,6 +235,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncLabel => 'Синхронизация';
 
   @override
+  String get projectSettings => 'Настройки проекта';
+
+  @override
+  String get projectName => 'Название проекта';
+
+  @override
+  String get projectNameHint => 'Введите название проекта';
+
+  @override
+  String get projectNameDescription =>
+      'Это название будет отображаться в приложении. Оно сохраняется в metadata.json в корне репозитория.';
+
+  @override
+  String get projectNameSaved => 'Название проекта сохранено';
+
+  @override
   String failedCreateTask(Object error) {
     return 'Не удалось создать задачу: $error';
   }

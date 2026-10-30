@@ -74,9 +74,10 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
             padding: const EdgeInsets.all(16),
             itemBuilder: (context, index) {
               final project = projects[index];
+              final displayName = project.customName ?? project.fullName;
               return TaskCard(
                 number: project.id,
-                title: project.fullName,
+                title: displayName,
                 subtitle: project.description ?? '',
                 assignee: null,
                 tags: [],

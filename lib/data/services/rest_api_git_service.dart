@@ -629,6 +629,58 @@ class RestApiGitService implements GitService {
   }
 
   @override
+  Future<String?> readFileContent(String projectId, String filePath) async {
+    final repo = _getOwnerAndRepo(projectId);
+    try {
+      final response = await _dio.get(
+        '/repos/$repo/contents/$filePath',
+      );
+      var content = response.data['content'] as String;
+      content = content
+          .replaceAll('-', '+')
+          .replaceAll('_', '/')
+          .replaceAll(RegExp(r'\s+'), '');
+      return utf8.decode(base64Decode(content));
+    } on DioException {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> writeFileContent(
+    String projectId,
+    String filePath,
+    String content,
+  ) async {
+    final repo = _getOwnerAndRepo(projectId);
+
+    // First read to get the SHA
+    String? sha;
+    try {
+      final readResponse = await _dio.get(
+        '/repos/$repo/contents/$filePath',
+      );
+      sha = readResponse.data['sha'] as String?;
+    } on DioException {
+      // File doesn't exist yet, will create new
+    }
+
+    final encoded = base64Encode(utf8.encode(content));
+    final branch = await _getBranch(projectId);
+
+    await _dio.put(
+      '/repos/$repo/contents/$filePath',
+      data: {
+        'message': 'Update $filePath',
+        'content': encoded,
+        'branch': branch,
+        'committer': _committer,
+        if (sha != null) 'sha': sha,
+      },
+    );
+  }
+
+  @override
   Future<void> dispose() async {
     _dio.close();
   }

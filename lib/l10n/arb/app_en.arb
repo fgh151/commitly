@@ -73,5 +73,10 @@
   "failedSendComment": "Failed to send comment: {error}",
   "projectsLabel": "Projects",
   "tasksLabel": "Tasks",
-  "syncLabel": "Sync"
+  "syncLabel": "Sync",
+  "projectSettings": "Project Settings",
+  "projectName": "Project Name",
+  "projectNameHint": "Enter project name",
+  "projectNameDescription": "This name will be displayed in the app. It is saved in metadata.json in the repository root.",
+  "projectNameSaved": "Project name saved"
 }

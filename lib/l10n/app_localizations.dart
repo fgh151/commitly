@@ -527,6 +527,36 @@ abstract class AppLocalizations {
   /// **'Sync'**
   String get syncLabel;
 
+  /// No description provided for @projectSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Project Settings'**
+  String get projectSettings;
+
+  /// No description provided for @projectName.
+  ///
+  /// In en, this message translates to:
+  /// **'Project Name'**
+  String get projectName;
+
+  /// No description provided for @projectNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter project name'**
+  String get projectNameHint;
+
+  /// No description provided for @projectNameDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This name will be displayed in the app. It is saved in metadata.json in the repository root.'**
+  String get projectNameDescription;
+
+  /// No description provided for @projectNameSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Project name saved'**
+  String get projectNameSaved;
+
   /// No description provided for @failedCreateTask.
   ///
   /// In en, this message translates to:

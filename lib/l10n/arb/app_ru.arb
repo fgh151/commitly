@@ -73,5 +73,10 @@
   "failedSendComment": "Не удалось отправить комментарий: {error}",
   "projectsLabel": "Проекты",
   "tasksLabel": "Задачи",
-  "syncLabel": "Синхронизация"
+  "syncLabel": "Синхронизация",
+  "projectSettings": "Настройки проекта",
+  "projectName": "Название проекта",
+  "projectNameHint": "Введите название проекта",
+  "projectNameDescription": "Это название будет отображаться в приложении. Оно сохраняется в metadata.json в корне репозитория.",
+  "projectNameSaved": "Название проекта сохранено"
 }

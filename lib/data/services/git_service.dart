@@ -95,6 +95,16 @@ abstract class GitService {
   /// Get the default branch name
   Future<String> getDefaultBranch(String projectId);
 
+  /// Read arbitrary file content from repo root
+  Future<String?> readFileContent(String projectId, String filePath);
+
+  /// Write arbitrary file content to repo root (creates commit)
+  Future<void> writeFileContent(
+    String projectId,
+    String filePath,
+    String content,
+  );
+
   /// Dispose resources
   Future<void> dispose();
 }

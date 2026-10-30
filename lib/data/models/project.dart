@@ -12,6 +12,7 @@ class Project {
   final GitServiceType serviceType;
   final DateTime? updatedAt;
   final String? localPath; // For self-hosted with local clone
+  final String? customName; // Custom name from metadata.json
 
   const Project({
     required this.id,
@@ -24,6 +25,7 @@ class Project {
     required this.serviceType,
     this.updatedAt,
     this.localPath,
+    this.customName,
   });
 
   factory Project.fromJson(Map<String, dynamic> json, GitServiceType type) {
@@ -54,6 +56,7 @@ class Project {
       'private': isPrivate,
       'default_branch': defaultBranch,
       'updated_at': updatedAt?.toIso8601String(),
+      'custom_name': customName,
     };
   }
 
@@ -68,6 +71,7 @@ class Project {
     GitServiceType? serviceType,
     DateTime? updatedAt,
     String? localPath,
+    String? customName,
   }) {
     return Project(
       id: id ?? this.id,
@@ -80,6 +84,7 @@ class Project {
       serviceType: serviceType ?? this.serviceType,
       updatedAt: updatedAt ?? this.updatedAt,
       localPath: localPath ?? this.localPath,
+      customName: customName ?? this.customName,
     );
   }
 }

@@ -9,6 +9,7 @@ import 'presentation/screens/projects/project_list_screen.dart';
 import 'presentation/screens/projects/add_project_screen.dart';
 import 'presentation/screens/tasks/task_list_screen.dart';
 import 'presentation/screens/tasks/task_detail_screen.dart';
+import 'presentation/screens/projects/project_settings_screen.dart';
 import 'presentation/screens/sync/sync_status_screen.dart';
 import 'presentation/widgets/common/app_scaffold.dart';
 import 'presentation/providers/auth_providers.dart';
@@ -85,6 +86,16 @@ GoRouter createRouter(WidgetRef ref) {
                 path: 'add',
                 name: 'add-project',
                 builder: (context, state) => const AddProjectScreen(),
+              ),
+              GoRoute(
+                path: 'settings/:projectId',
+                name: 'project-settings',
+                builder: (context, state) {
+                  final projectId = Uri.decodeComponent(
+                    state.pathParameters['projectId']!,
+                  );
+                  return ProjectSettingsScreen(projectId: projectId);
+                },
               ),
               GoRoute(
                 path: ':projectId/tasks',

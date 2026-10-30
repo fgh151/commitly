@@ -235,6 +235,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncLabel => 'Sync';
 
   @override
+  String get projectSettings => 'Project Settings';
+
+  @override
+  String get projectName => 'Project Name';
+
+  @override
+  String get projectNameHint => 'Enter project name';
+
+  @override
+  String get projectNameDescription =>
+      'This name will be displayed in the app. It is saved in metadata.json in the repository root.';
+
+  @override
+  String get projectNameSaved => 'Project name saved';
+
+  @override
   String failedCreateTask(Object error) {
     return 'Failed to create task: $error';
   }

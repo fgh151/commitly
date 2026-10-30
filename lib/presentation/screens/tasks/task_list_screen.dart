@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../data/models/git_service_config.dart';
+import '../../../data/models/project.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/widgets/common/task_card.dart';
 
@@ -51,12 +53,34 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final tasksAsync = ref.watch(taskCacheProvider)[widget.projectId] ?? const AsyncValue.loading();
-    final projectFullName = widget.projectId.split('/').last;
+    
+    // Get custom project name from project cache
+    final projectsAsync = ref.watch(projectCacheProvider);
+    final project = projectsAsync.value?.firstWhere(
+      (p) => p.fullName == widget.projectId,
+      orElse: () => const Project(
+        id: 0,
+        name: '',
+        owner: '',
+        fullName: '',
+        isPrivate: false,
+        defaultBranch: 'main',
+        serviceType: GitServiceType.github,
+      ),
+    );
+    final displayName = project?.customName ?? widget.projectId.split('/').last;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.taskListTitle(projectFullName)),
+        title: Text(l10n.taskListTitle(displayName)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () {
+              context.push('/projects/settings/${Uri.encodeComponent(widget.projectId)}');
+            },
+          ),
           if (_hasActiveFilters())
             IconButton(
               icon: const Icon(Icons.clear_all),
