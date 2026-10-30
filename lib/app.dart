@@ -15,100 +15,136 @@ import 'data/models/git_service_config.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-final GoRouter _router = GoRouter(
-  navigatorKey: _rootNavigatorKey,
-  initialLocation: '/auth',
-  redirect: (context, state) {
-    final ref = ProviderScope.containerOf(context, listen: false);
-    final authState = ref.read(authStateProvider);
-    final isAuthenticated = authState.status == AuthStatus.authenticated;
-    final isAuthRoute = state.matchedLocation == '/auth' ||
-        state.matchedLocation == '/auth/form';
+GoRouter createRouter(WidgetRef ref) {
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/auth',
+    // Only handle auth redirects at top level
+    redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+      final isAuthenticated = authState.status == AuthStatus.authenticated;
+      final isAuthRoute = state.matchedLocation == '/auth' ||
+          state.matchedLocation == '/auth/form';
 
-    if (isAuthenticated && isAuthRoute) {
-      return '/projects';
-    }
-    if (!isAuthenticated && !isAuthRoute) {
-      return '/auth';
-    }
-    return null;
-  },
-  routes: [
-    GoRoute(
-      path: '/auth',
-      name: 'auth',
-      builder: (context, state) => const AuthSelectionScreen(),
-      routes: [
-        GoRoute(
-          path: 'form',
-          name: 'auth-form',
-          builder: (context, state) {
-            final serviceParam = state.uri.queryParameters['service'];
-            final serviceType = serviceParam != null
-                ? GitServiceType.values.firstWhere(
-                    (e) => e.name == serviceParam,
-                    orElse: () => GitServiceType.github,
-                  )
-                : GitServiceType.github;
-            return AuthFormScreen(serviceType: serviceType);
-          },
-        ),
-      ],
-    ),
-    ShellRoute(
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) => MainScaffold(child: child),
-      routes: [
-        GoRoute(
-          path: '/projects',
-          name: 'projects',
-          builder: (context, state) => const ProjectListScreen(),
-          routes: [
-            GoRoute(
-              path: 'add',
-              name: 'add-project',
-              builder: (context, state) => const AddProjectScreen(),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/projects/:projectId/tasks',
-          name: 'task-list',
-          builder: (context, state) => TaskListScreen(
-            projectId: state.pathParameters['projectId']!,
+      if (isAuthenticated && isAuthRoute) {
+        return '/projects';
+      }
+      if (!isAuthenticated && !isAuthRoute) {
+        return '/auth';
+      }
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/auth',
+        name: 'auth',
+        builder: (context, state) => const AuthSelectionScreen(),
+        routes: [
+          GoRoute(
+            path: 'form',
+            name: 'auth-form',
+            builder: (context, state) {
+              final serviceParam = state.uri.queryParameters['service'];
+              final serviceType = serviceParam != null
+                  ? GitServiceType.values.firstWhere(
+                      (e) => e.name == serviceParam,
+                      orElse: () => GitServiceType.github,
+                    )
+                  : GitServiceType.github;
+              return AuthFormScreen(serviceType: serviceType);
+            },
           ),
-          routes: [
-            GoRoute(
-              path: ':taskNumber',
-              name: 'task-detail',
-              builder: (context, state) => TaskDetailScreen(
-                projectId: state.pathParameters['projectId']!,
-                taskNumber: int.parse(state.pathParameters['taskNumber']!),
+        ],
+      ),
+      ShellRoute(
+        navigatorKey: _shellNavigatorKey,
+        builder: (context, state, child) => MainScaffold(child: child),
+        redirect: (context, state) {
+          // Only redirect for top-level shell routes
+          if (state.matchedLocation == '/projects' ||
+              state.matchedLocation == '/projects/' ||
+              state.matchedLocation == '/sync') {
+            final authState = ref.read(authStateProvider);
+            if (authState.status != AuthStatus.authenticated) {
+              return '/auth';
+            }
+          }
+          return null;
+        },
+        routes: [
+          GoRoute(
+            path: '/projects',
+            name: 'projects',
+            builder: (context, state) => const ProjectListScreen(),
+            routes: [
+              GoRoute(
+                path: 'add',
+                name: 'add-project',
+                builder: (context, state) => const AddProjectScreen(),
               ),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/sync',
-          name: 'sync',
-          builder: (context, state) => const SyncStatusScreen(),
-        ),
-      ],
-    ),
-  ],
-  errorBuilder: (context, state) => const ErrorScreen(),
-);
+              GoRoute(
+                path: ':projectId/tasks',
+                name: 'task-list',
+                builder: (context, state) {
+                  // URL-decode the projectId (e.g., 'owner%2Frepo' -> 'owner/repo')
+                  final projectId = Uri.decodeComponent(
+                    state.pathParameters['projectId']!,
+                  );
+                  return TaskListScreen(projectId: projectId);
+                },
+                routes: [
+                  GoRoute(
+                    path: ':taskNumber',
+                    name: 'task-detail',
+                    builder: (context, state) {
+                      // URL-decode projectId
+                      final projectId = Uri.decodeComponent(
+                        state.pathParameters['projectId']!,
+                      );
+                      final taskNumber = state.pathParameters['taskNumber'] ?? '';
+                      if (taskNumber.isEmpty) {
+                        return const Scaffold(
+                          body: Center(child: Text('Invalid task number')),
+                        );
+                      }
+                      final parsed = int.tryParse(taskNumber);
+                      if (parsed == null) {
+                        return const Scaffold(
+                          body: Center(child: Text('Invalid task number')),
+                        );
+                      }
+                      return TaskDetailScreen(
+                        projectId: projectId,
+                        taskNumber: parsed,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/sync',
+            name: 'sync',
+            builder: (context, state) => const SyncStatusScreen(),
+          ),
+        ],
+      ),
+    ],
+    errorBuilder: (context, state) => const ErrorScreen(),
+  );
+}
 
-class CommitlyApp extends StatelessWidget {
+class CommitlyApp extends ConsumerWidget {
   const CommitlyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'Commitly',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
-      routerConfig: _router,
+      routerConfig: createRouter(ref),
     );
   }
 

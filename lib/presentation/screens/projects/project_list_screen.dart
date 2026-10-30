@@ -58,9 +58,10 @@ class ProjectListScreen extends ConsumerWidget {
                 assignee: null,
                 tags: [],
                 onTap: () {
-                  ref.read(selectedProjectIdProvider.notifier).state =
-                      project.fullName;
-                  context.go('/projects/${project.fullName}/tasks');
+                  // URL-encode the project name to handle '/' in 'owner/repo'
+                  final encodedProjectId = Uri.encodeComponent(project.fullName);
+                  ref.read(selectedProjectIdProvider.notifier).state = project.fullName;
+                  context.go('/projects/$encodedProjectId/tasks');
                 },
               );
             },
