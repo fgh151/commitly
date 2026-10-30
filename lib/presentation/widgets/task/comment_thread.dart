@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../presentation/providers/auth_providers.dart';
 
 /// A scrollable list of comments for a task.
@@ -104,7 +105,7 @@ class _CommentCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _formatDate(comment.createdAt),
+                      _formatDate(comment.createdAt, context),
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.colorScheme.onSurfaceVariant,
@@ -128,13 +129,20 @@ class _CommentCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+  String _formatDate(DateTime date, BuildContext context) {
+    // Convert UTC to local time
+    final localDate = date.toLocal();
+    final now = DateTime.now().toLocal();
+    final diff = now.difference(localDate);
+
     if (diff.inMinutes < 1) return 'just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 1) return '${diff.inHours}h ago';
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${date.day}/${date.month}/${date.year}';
+
+    // Use locale-aware date format
+    final locale = Localizations.localeOf(context).toString();
+    return DateFormat('MMM d, y', locale).format(localDate);
   }
 }
