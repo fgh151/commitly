@@ -121,7 +121,7 @@ jobs:
   # ==================== CREATE RELEASE ====================
   create-release:
     name: Create Release
-    needs: [build-android, build-windows, build-macos]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
