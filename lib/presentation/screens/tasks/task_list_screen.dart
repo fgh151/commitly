@@ -15,8 +15,8 @@ class TaskListScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskListScreenState extends ConsumerState<TaskListScreen> {
-  String _filterTag = '';
-  String _filterAssignee = '';
+  final TextEditingController _filterNumber = TextEditingController();
+  final TextEditingController _filterTitle = TextEditingController();
 
   @override
   void initState() {
@@ -28,6 +28,25 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   }
 
   @override
+  void dispose() {
+    _filterNumber.dispose();
+    _filterTitle.dispose();
+    super.dispose();
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _filterNumber.clear();
+      _filterTitle.clear();
+    });
+  }
+
+  bool _hasActiveFilters() {
+    return _filterNumber.text.trim().isNotEmpty ||
+        _filterTitle.text.trim().isNotEmpty;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(taskCacheProvider)[widget.projectId] ?? const AsyncValue.loading();
     final projectFullName = widget.projectId.split('/').last;
@@ -36,6 +55,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       appBar: AppBar(
         title: Text('Tasks: $projectFullName'),
         actions: [
+          if (_hasActiveFilters())
+            IconButton(
+              icon: const Icon(Icons.clear_all),
+              tooltip: 'Clear filters',
+              onPressed: _clearFilters,
+            ),
           IconButton(
             icon: const Icon(Icons.sync),
             tooltip: 'Sync',
@@ -51,26 +76,48 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       ),
       body: Column(
         children: [
-          // Filter chips
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+          // Search fields
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
-                FilterChip(
-                  label: const Text('All'),
-                  selected: _filterTag.isEmpty && _filterAssignee.isEmpty,
-                  onSelected: (_) {
-                    setState(() {
-                      _filterTag = '';
-                      _filterAssignee = '';
-                    });
-                  },
+                // Filter by number
+                SizedBox(
+                  width: 100,
+                  child: TextField(
+                    controller: _filterNumber,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: '# Number',
+                      prefixIcon: Icon(Icons.numbers),
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
                 ),
                 const SizedBox(width: 8),
-                // Tags filter (would need to collect from tasks)
-                // Assignee filter
+                // Filter by title (ILIKE)
+                Expanded(
+                  child: TextField(
+                    controller: _filterTitle,
+                    decoration: const InputDecoration(
+                      hintText: 'Search by title...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
               ],
             ),
           ),
@@ -80,21 +127,43 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             child: tasksAsync.when(
               data: (tasks) {
                 final filtered = tasks.where((task) {
-                  if (_filterTag.isNotEmpty &&
-                      !task.tags.contains(_filterTag)) return false;
-                  if (_filterAssignee.isNotEmpty &&
-                      task.assignee != _filterAssignee) return false;
+                  // Filter by number (exact match)
+                  if (_filterNumber.text.trim().isNotEmpty) {
+                    final filterNum = int.tryParse(_filterNumber.text.trim());
+                    if (filterNum == null || task.number != filterNum) return false;
+                  }
+                  // Filter by title (case-insensitive substring match, like ILIKE)
+                  if (_filterTitle.text.trim().isNotEmpty) {
+                    final filterTitle = _filterTitle.text.trim().toLowerCase();
+                    if (!task.title.toLowerCase().contains(filterTitle)) return false;
+                  }
                   return true;
                 }).toList();
 
                 if (filtered.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.assignment, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('No tasks yet'),
+                        Icon(
+                          _hasActiveFilters()
+                              ? Icons.filter_list_off
+                              : Icons.assignment,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _hasActiveFilters()
+                              ? 'No tasks match filters'
+                              : 'No tasks yet',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        if (_hasActiveFilters())
+                          TextButton(
+                            onPressed: _clearFilters,
+                            child: const Text('Clear filters'),
+                          ),
                       ],
                     ),
                   );
