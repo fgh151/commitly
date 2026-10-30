@@ -13,10 +13,15 @@ class TaskRepository {
     final numbers = await _gitService.listTaskNumbers(projectId);
     final tasks = <Task>[];
 
+    print('📋 Fetching ${numbers.length} tasks for $projectId');
+
     for (final number in numbers) {
       try {
+        print('  📄 Fetching task $number...');
         final metadata = await _gitService.readMetadata(projectId, number);
+        print('  ✅ Task $number metadata: $metadata');
         final description = await _gitService.readDescription(projectId, number);
+        print('  ✅ Task $number description: ${description.substring(0, description.length.clamp(0, 50))}...');
 
         tasks.add(Task(
           number: number,
@@ -29,12 +34,15 @@ class TaskRepository {
               DateTime.now(),
           projectId: projectId,
         ));
-      } catch (e) {
+      } catch (e, stack) {
+        print('  ❌ Error loading task $number: $e');
+        print('     Stack: $stack');
         // Skip tasks that can't be loaded
         continue;
       }
     }
 
+    print('📋 Loaded ${tasks.length} tasks');
     return tasks;
   }
 

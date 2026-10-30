@@ -108,21 +108,30 @@ class RestApiGitService implements GitService {
     final List<int> numbers = [];
 
     try {
+      print('📂 Listing task folders in /tasks');
       final response = await _dio.get(
         '/repos/$repo/contents/tasks',
       );
 
+      print('📂 Response type: ${response.data.runtimeType}');
+      print('📂 Response length: ${response.data is List ? (response.data as List).length : "N/A"}');
+
       if (response.data is List) {
         for (final item in response.data) {
           final name = item['name'] as String? ?? '';
+          final type = item['type'] as String? ?? '';
+          print('📂 Item: name=$name, type=$type');
+
           // Parse folder name "001" -> 1
           final parsed = int.tryParse(name);
-          if (parsed != null) {
+          if (parsed != null && type == 'dir') {
             numbers.add(parsed);
           }
         }
       }
     } on DioException catch (e) {
+      print('❌ Error listing tasks: ${e.message}');
+      print('   Status: ${e.response?.statusCode}');
       // Tasks folder doesn't exist yet
       if (e.response?.statusCode != 404) {
         rethrow;
@@ -130,6 +139,7 @@ class RestApiGitService implements GitService {
     }
 
     numbers.sort();
+    print('📂 Found ${numbers.length} tasks: $numbers');
     return numbers;
   }
 
@@ -158,22 +168,13 @@ class RestApiGitService implements GitService {
         };
       }
 
-      // Handle GitHub's base64url encoding (replace - with + and _ with /)
-      String decodedContent;
-      try {
-        // GitHub sometimes uses base64url encoding
-        final normalized = content
-            .replaceAll('-', '+')
-            .replaceAll('_', '/')
-            .replaceAll(RegExp(r'\s+'), '');
-        final bytes = base64Decode(normalized);
-        decodedContent = utf8.decode(bytes);
-      } catch (e) {
-        print('❌ Base64 decode error: $e');
-        print('   Content length: ${content.length}');
-        print('   Content preview: ${content.substring(0, content.length.clamp(0, 100))}...');
-        rethrow;
-      }
+      // Normalize base64: handle whitespace, base64url encoding
+      final normalized = content
+          .replaceAll('-', '+')
+          .replaceAll('_', '/')
+          .replaceAll(RegExp(r'\s+'), '');
+      final bytes = base64Decode(normalized);
+      final decodedContent = utf8.decode(bytes);
 
       final json = jsonDecode(decodedContent) as Map<String, dynamic>;
       return json;
@@ -238,7 +239,12 @@ class RestApiGitService implements GitService {
       '/repos/$repo/contents/tasks/$folderName/description.md',
     );
 
-    final content = response.data['content'] as String;
+    var content = response.data['content'] as String;
+    // Normalize base64: remove whitespace, handle base64url encoding
+    content = content
+        .replaceAll('-', '+')
+        .replaceAll('_', '/')
+        .replaceAll(RegExp(r'\s+'), '');
     return utf8.decode(base64Decode(content));
   }
 
@@ -421,7 +427,11 @@ class RestApiGitService implements GitService {
       '/repos/$repo/contents/tasks/$folderName/attachments/$fileName',
     );
 
-    final content = response.data['content'] as String;
+    var content = response.data['content'] as String;
+    content = content
+        .replaceAll('-', '+')
+        .replaceAll('_', '/')
+        .replaceAll(RegExp(r'\s+'), '');
     return base64Decode(content);
   }
 
