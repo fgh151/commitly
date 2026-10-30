@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/task.dart';
 import '../../../presentation/widgets/task/comment_thread.dart';
 import '../../../presentation/widgets/task/comment_editor.dart';
+import '../../../presentation/widgets/task/markdown_editor.dart';
 import '../../../presentation/widgets/task/tag_chip.dart';
 import '../../../presentation/providers/auth_providers.dart';
 
@@ -25,8 +26,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
   late TextEditingController _assigneeController;
+  late TextEditingController _descriptionController;
   bool _isEditing = false;
   bool _isSaving = false;
 
@@ -35,8 +36,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _titleController = TextEditingController();
-    _descriptionController = TextEditingController();
     _assigneeController = TextEditingController();
+    _descriptionController = TextEditingController();
     // Auto-enter edit mode for new tasks (empty description)
     _isEditing = true;
   }
@@ -45,8 +46,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
   void dispose() {
     _tabController.dispose();
     _titleController.dispose();
-    _descriptionController.dispose();
     _assigneeController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -139,10 +140,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
           ),
         );
 
-        _descriptionController.text = task.description;
         _assigneeController.text = task.assignee ?? '';
-
         _titleController.text = task.title;
+        _descriptionController.text = task.description;
 
         return Scaffold(
           appBar: AppBar(
@@ -290,16 +290,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
                   ),
                   const SizedBox(height: 8),
                   if (_isEditing)
-                    TextField(
-                      controller: _descriptionController,
-                      maxLines: null,
-                      minLines: 10,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter description (Markdown supported)',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
+                    SizedBox(
+                      height: 300,
+                      child: MarkdownEditor(
+                        controller: _descriptionController,
+                        placeholder: 'Enter description (Markdown supported)',
                       ),
-                      autofocus: true,
                     )
                   else
                     SelectableText(

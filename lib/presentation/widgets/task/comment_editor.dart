@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../presentation/providers/auth_providers.dart';
+import 'markdown_editor.dart';
 
-/// A text field for adding comments to a task.
+/// A markdown editor for adding comments to a task.
 class CommentEditor extends ConsumerStatefulWidget {
   final String projectId;
   final int taskNumber;
@@ -30,7 +31,8 @@ class _CommentEditorState extends ConsumerState<CommentEditor> {
   }
 
   Future<void> _send() async {
-    if (_controller.text.trim().isEmpty) return;
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
 
     setState(() => _isSending = true);
 
@@ -43,7 +45,7 @@ class _CommentEditorState extends ConsumerState<CommentEditor> {
       await repo.addComment(
         widget.projectId,
         widget.taskNumber,
-        _controller.text.trim(),
+        text,
         userName,
       );
       if (mounted) {
@@ -69,33 +71,32 @@ class _CommentEditorState extends ConsumerState<CommentEditor> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
+          SizedBox(
+            height: 100,
+            child: MarkdownEditor(
               controller: _controller,
-              maxLines: null,
-              decoration: const InputDecoration(
-                hintText: 'Write a comment...',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-              onSubmitted: (_) => _send(),
+              placeholder: 'Write a comment (Markdown supported)...',
+              height: 100,
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: _isSending ? null : _send,
-            icon: _isSending
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
+                onPressed: _isSending ? null : _send,
+                icon: _isSending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send),
+              ),
+            ],
           ),
         ],
       ),
