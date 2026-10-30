@@ -8,6 +8,7 @@ import '../../data/services/git_service.dart';
 import '../../data/services/git_service_factory.dart';
 import '../../data/models/git_service_config.dart';
 import '../../data/models/project.dart';
+import '../../data/models/task.dart';
 
 // Repositories
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -191,6 +192,15 @@ final taskRepositoryProvider = Provider<TaskRepository>((ref) {
 final tasksProvider = FutureProvider.family<List<dynamic>, String>((ref, projectId) async {
   final repo = ref.read(taskRepositoryProvider);
   return repo.fetchTasks(projectId);
+});
+
+final taskDetailProvider = FutureProvider.family<Task?, String>((ref, projectId) async {
+  final repo = ref.read(taskRepositoryProvider);
+  try {
+    return await repo.fetchTask(projectId, 1);
+  } catch (e) {
+    return null;
+  }
 });
 
 // Sync

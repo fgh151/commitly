@@ -65,12 +65,12 @@ class RestApiGitService implements GitService {
   }
 
   String _getOwnerAndRepo(String projectId, {String separator = '/'}) {
-    // projectId can be "owner/repo" or just repo ID
-    if (projectId.contains(separator)) {
-      return projectId;
+    // URL-decode the projectId (e.g., 'owner%2Frepo' -> 'owner/repo')
+    final decoded = Uri.decodeComponent(projectId);
+    if (decoded.contains(separator)) {
+      return decoded;
     }
-    // For API-based approach, we expect projectId to be full_name format
-    throw ArgumentError('projectId must be in "owner/repo" format, got: $projectId');
+    throw ArgumentError('projectId must be in "owner/repo" format, got: $decoded');
   }
 
   @override
@@ -146,12 +146,40 @@ class RestApiGitService implements GitService {
         '/repos/$repo/contents/tasks/$folderName/metadata.json',
       );
 
-      final content = response.data['content'] as String;
-      final decoded = base64Decode(content);
-      final json = jsonDecode(utf8.decode(decoded)) as Map<String, dynamic>;
+      final content = response.data['content'] as String?;
+      if (content == null || content.isEmpty) {
+        print('⚠️ Empty content from GitHub for metadata.json');
+        return {
+          'id': taskNumber,
+          'assignee': null,
+          'tags': <String>[],
+          'created': DateTime.now().toUtc().toIso8601String(),
+          'updated': DateTime.now().toUtc().toIso8601String(),
+        };
+      }
+
+      // Handle GitHub's base64url encoding (replace - with + and _ with /)
+      String decodedContent;
+      try {
+        // GitHub sometimes uses base64url encoding
+        final normalized = content
+            .replaceAll('-', '+')
+            .replaceAll('_', '/')
+            .replaceAll(RegExp(r'\s+'), '');
+        final bytes = base64Decode(normalized);
+        decodedContent = utf8.decode(bytes);
+      } catch (e) {
+        print('❌ Base64 decode error: $e');
+        print('   Content length: ${content.length}');
+        print('   Content preview: ${content.substring(0, content.length.clamp(0, 100))}...');
+        rethrow;
+      }
+
+      final json = jsonDecode(decodedContent) as Map<String, dynamic>;
       return json;
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
+        print('📝 metadata.json not found, creating defaults for task $taskNumber');
         return {
           'id': taskNumber,
           'assignee': null,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../data/models/task.dart';
 import '../../../presentation/widgets/task/comment_thread.dart';
 import '../../../presentation/widgets/task/comment_editor.dart';
 import '../../../presentation/widgets/task/tag_chip.dart';
@@ -34,6 +35,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     _tabController = TabController(length: 2, vsync: this);
     _descriptionController = TextEditingController();
     _assigneeController = TextEditingController();
+    // Auto-enter edit mode for new tasks (empty description)
+    _isEditing = true;
   }
 
   @override
@@ -47,6 +50,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
   Future<void> _saveDescription() async {
     setState(() => _isSaving = true);
     try {
+      print('💾 Saving description...');
+      print('   projectId: ${widget.projectId}');
+      print('   taskNumber: ${widget.taskNumber}');
+      print('   description: ${_descriptionController.text.substring(0, _descriptionController.text.length.clamp(0, 100))}...');
       final repo = ref.read(taskRepositoryProvider);
       await repo.updateDescription(
         widget.projectId,
@@ -59,10 +66,15 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
         );
         setState(() => _isEditing = false);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      print('❌ Save error: $e');
+      print('   Stack: $stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
+          SnackBar(
+            content: Text('Save failed: $e'),
+            duration: const Duration(seconds: 10),
+          ),
         );
       }
     }
@@ -99,7 +111,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
       data: (tasks) {
         final task = tasks.firstWhere(
           (t) => t.number == widget.taskNumber,
-          orElse: () => throw Exception('Task not found'),
+          orElse: () => Task(
+            number: widget.taskNumber,
+            description: '',
+            tags: [],
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            projectId: widget.projectId,
+          ),
         );
 
         _descriptionController.text = task.description;
@@ -118,16 +137,22 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
             actions: [
               if (_tabController.index == 0) ...[
                 if (_isEditing) ...[
-                  IconButton(
+                  TextButton.icon(
                     icon: _isSaving
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.save),
+                        : const Icon(Icons.save, size: 18),
+                    label: const Text('Save'),
                     onPressed: _isSaving ? null : _saveDescription,
-                    tooltip: 'Save',
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _isEditing = false);
+                    },
+                    child: const Text('Cancel'),
                   ),
                 ] else ...[
                   IconButton(
@@ -241,11 +266,15 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
                       decoration: const InputDecoration(
                         hintText: 'Enter description (Markdown supported)',
                         border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
                       ),
+                      autofocus: true,
                     )
                   else
                     SelectableText(
-                      task.description,
+                      task.description.isEmpty
+                          ? 'No description yet'
+                          : task.description,
                       style: const TextStyle(fontSize: 14),
                     ),
                 ],

@@ -26,6 +26,11 @@ GoRouter createRouter(WidgetRef ref) {
       final isAuthRoute = state.matchedLocation == '/auth' ||
           state.matchedLocation == '/auth/form';
 
+      // Don't redirect if auth is still initializing
+      if (authState.status == AuthStatus.unknown && !isAuthRoute) {
+        return null;
+      }
+
       if (isAuthenticated && isAuthRoute) {
         return '/projects';
       }
@@ -65,7 +70,8 @@ GoRouter createRouter(WidgetRef ref) {
               state.matchedLocation == '/projects/' ||
               state.matchedLocation == '/sync') {
             final authState = ref.read(authStateProvider);
-            if (authState.status != AuthStatus.authenticated) {
+            // Only redirect if we know the user is not authenticated
+            if (authState.status == AuthStatus.unauthenticated) {
               return '/auth';
             }
           }

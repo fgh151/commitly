@@ -106,7 +106,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                       assignee: task.assignee,
                       tags: task.tags,
                       onTap: () {
-                        context.push('${task.number.toString().padLeft(3, '0')}');
+                        final encoded = Uri.encodeComponent(task.number.toString().padLeft(3, '0'));
+                        context.pushNamed('task-detail', pathParameters: {
+                          'projectId': widget.projectId,
+                          'taskNumber': encoded,
+                        });
                       },
                     );
                   },
@@ -126,7 +130,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             final newNumber = await repo.createTask(widget.projectId);
             if (mounted) {
               ref.invalidate(tasksProvider(widget.projectId));
-              context.push('${newNumber.toString().padLeft(3, '0')}');
+              final encoded = Uri.encodeComponent(newNumber.toString().padLeft(3, '0'));
+              context.pushNamed('task-detail', pathParameters: {
+                'projectId': widget.projectId,
+                'taskNumber': encoded,
+              });
             }
           } catch (e) {
             if (mounted) {
