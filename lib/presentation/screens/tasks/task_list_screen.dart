@@ -183,6 +183,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                           : task.description,
                       assignee: task.assignee,
                       tags: task.tags,
+                      createdAt: task.createdAt,
                       onTap: () {
                         final encoded = Uri.encodeComponent(task.number.toString().padLeft(3, '0'));
                         context.pushNamed('task-detail', pathParameters: {
