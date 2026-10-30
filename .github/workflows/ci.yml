@@ -48,3 +48,45 @@ jobs:
 
       - name: Analyze code
         run: flutter analyze
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Fix Android SDK versions for pub-cache plugins
+        run: |
+          # Update flutter_plugin_android_lifecycle to compileSdk 36
+          find ~/.pub-cache -name "build.gradle" -path "*/flutter_plugin_android_lifecycle*/android/build.gradle" -exec sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 36/g' {} \;
+          find ~/.pub-cache -name "build.gradle.kts" -path "*/flutter_plugin_android_lifecycle*/android/build.gradle.kts" -exec sed -i 's/flutter.compileSdkVersion/36/g' {} \;
+          
+          # Update file_picker to compileSdk 36
+          find ~/.pub-cache -name "build.gradle" -path "*/file_picker*/android/build.gradle" -exec sed -i 's/compileSdk 34/compileSdk 36/g' {} \;
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
