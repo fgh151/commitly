@@ -5,17 +5,38 @@ import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/widgets/common/task_card.dart';
 
 /// Screen listing all projects (repositories).
-class ProjectListScreen extends ConsumerWidget {
+class ProjectListScreen extends ConsumerStatefulWidget {
   const ProjectListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final projectsAsync = ref.watch(projectsProvider);
+  ConsumerState<ProjectListScreen> createState() => _ProjectListScreenState();
+}
+
+class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Refresh project cache on first load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(projectCacheProvider.notifier).refresh();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final projectsAsync = ref.watch(projectCacheProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Projects'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () async {
+              await ref.read(projectCacheProvider.notifier).forceRefresh();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Disconnect',

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../core/errors/app_exceptions.dart';
 import '../../data/repositories/project_repository.dart';
@@ -159,6 +162,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final repo = _ref.read(authRepositoryProvider);
     await repo.clearCredentials();
     await state.gitService?.dispose();
+    // Clear project cache
+    _ref.read(projectCacheProvider.notifier).clear();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }
@@ -169,6 +174,95 @@ final authStateProvider =
 });
 
 // Projects
+class ProjectCache extends StateNotifier<AsyncValue<List<Project>>> {
+  final Ref _ref;
+  DateTime? _fetchedAt;
+  GitServiceType? _serviceType;
+
+  ProjectCache(this._ref) : super(const AsyncValue.loading()) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Load from cache on init
+    final cached = await _loadCached();
+    if (cached != null) {
+      state = AsyncValue.data(cached);
+    }
+  }
+
+  Future<List<Project>?> _loadCached() async {
+    try {
+      final prefs = _ref.read(sharedPreferencesProvider);
+      final json = await prefs.getString('projects_cache');
+      if (json == null) return null;
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      final ts = DateTime.tryParse(map['ts'] as String);
+      if (ts == null || DateTime.now().difference(ts).inMinutes > 30) return null;
+      final typeIndex = map['type'] as int? ?? 0;
+      final serviceType = GitServiceType.values[typeIndex];
+      final list = map['projects'] as List<dynamic>;
+      return list.map((e) => Project.fromJson(e as Map<String, dynamic>, serviceType)).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _saveCached(List<Project> projects, GitServiceType type) {
+    try {
+      final prefs = _ref.read(sharedPreferencesProvider);
+      prefs.setString('projects_cache', jsonEncode({
+        'ts': DateTime.now().toUtc().toIso8601String(),
+        'type': type.index,
+        'projects': projects.map((p) => p.toJson()).toList(),
+      }));
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    try {
+      final authState = _ref.read(authStateProvider);
+      if (authState.gitService == null) {
+        state = AsyncValue.error('Not authenticated', StackTrace.current);
+        return;
+      }
+      final repo = ProjectRepository(authState.gitService!);
+      final projects = await repo.fetchProjects();
+      _fetchedAt = DateTime.now();
+      _serviceType = authState.config?.type;
+      _saveCached(projects, _serviceType ?? GitServiceType.github);
+      state = AsyncValue.data(projects);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> forceRefresh() async {
+    _fetchedAt = null;
+    await refresh();
+  }
+
+  void clear() {
+    try {
+      final prefs = _ref.read(sharedPreferencesProvider);
+      prefs.remove('projects_cache');
+    } catch (_) {}
+    _serviceType = null;
+    state = AsyncValue.data(<Project>[]);
+  }
+}
+
+final sharedPreferencesProvider = Provider<SharedPreferencesAsync>((ref) {
+  return SharedPreferencesAsync();
+});
+
+final projectCacheProvider = StateNotifierProvider<ProjectCache, AsyncValue<List<Project>>>((ref) {
+  return ProjectCache(ref);
+});
+
 final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
   final gitService = ref.read(authStateProvider).gitService;
   if (gitService == null) throw Exception('Not authenticated');
@@ -176,8 +270,8 @@ final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
 });
 
 final projectsProvider = FutureProvider<List<Project>>((ref) async {
-  final repo = ref.read(projectRepositoryProvider);
-  return repo.fetchProjects();
+  final projects = ref.read(projectCacheProvider).valueOrNull ?? [];
+  return projects;
 });
 
 final selectedProjectIdProvider = StateProvider<String?>((ref) => null);
