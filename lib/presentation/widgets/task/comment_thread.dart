@@ -49,6 +49,8 @@ class CommentThread extends ConsumerWidget {
           itemCount: comments.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
           padding: const EdgeInsets.all(16),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           itemBuilder: (context, index) {
             final comment = comments[index];
             return _CommentCard(comment: comment);

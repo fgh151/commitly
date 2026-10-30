@@ -22,9 +22,7 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<TaskDetailScreen> createState() => _TaskDetailScreenState();
 }
 
-class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   late TextEditingController _titleController;
   late TextEditingController _assigneeController;
   late TextEditingController _descriptionController;
@@ -34,7 +32,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _titleController = TextEditingController();
     _assigneeController = TextEditingController();
     _descriptionController = TextEditingController();
@@ -44,7 +41,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _titleController.dispose();
     _assigneeController.dispose();
     _descriptionController.dispose();
@@ -147,49 +143,49 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
         return Scaffold(
           appBar: AppBar(
             title: Text('Task #${task.number.toString().padLeft(3, '0')}'),
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Description'),
-                Tab(text: 'Comments'),
-              ],
-            ),
             actions: [
-              if (_tabController.index == 0) ...[
-                if (_isEditing) ...[
-                  TextButton.icon(
-                    icon: _isSaving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save, size: 18),
-                    label: const Text('Save'),
-                    onPressed: _isSaving ? null : _saveAll,
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _isEditing = false);
-                    },
-                    child: const Text('Cancel'),
-                  ),
-                ] else ...[
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => setState(() => _isEditing = true),
-                    tooltip: 'Edit',
-                  ),
-                ],
+              if (_isEditing) ...[
+                TextButton.icon(
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save, size: 18),
+                  label: const Text('Save'),
+                  onPressed: _isSaving ? null : _saveAll,
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() => _isEditing = false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ] else ...[
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => setState(() => _isEditing = true),
+                  tooltip: 'Edit',
+                ),
               ],
             ],
           ),
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildDescriptionTab(task),
-              _buildCommentsTab(task),
-            ],
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Metadata section
+                _buildMetadataCard(task),
+                const SizedBox(height: 16),
+                // Description
+                _buildDescriptionCard(task),
+                const SizedBox(height: 16),
+                // Comments section
+                _buildCommentsSection(task),
+              ],
+            ),
           ),
         );
       },
@@ -198,160 +194,121 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     );
   }
 
-  Widget _buildDescriptionTab(dynamic task) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Metadata section
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Metadata',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  // Title
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Title',
-                      hintText: 'Task title',
-                      prefixIcon: Icon(Icons.title),
-                    ),
-                    onSubmitted: (_) => _saveAll(),
-                  ),
-                  const SizedBox(height: 12),
-                  // Assignee
-                  TextField(
-                    controller: _assigneeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Assignee',
-                      hintText: 'Username',
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    onSubmitted: (_) => _saveAssignee(),
-                  ),
-                  const SizedBox(height: 12),
-                  // Tags
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ...task.tags.map((tag) => TagChip(label: tag)),
-                      if (_isEditing)
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            // Add tag logic
-                          },
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Tag'),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+  Widget _buildMetadataCard(dynamic task) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Metadata',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-          ),
-          const SizedBox(height: 16),
-          // Description
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Description',
-                        style:
-                            TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      if (_isEditing)
-                        Row(
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                setState(() => _isEditing = false);
-                                _descriptionController.text = task.description;
-                              },
-                              child: const Text('Cancel'),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_isEditing)
-                    SizedBox(
-                      height: 300,
-                      child: MarkdownEditor(
-                        controller: _descriptionController,
-                        placeholder: 'Enter description (Markdown supported)',
-                      ),
-                    )
-                  else
-                    SelectableText(
-                      task.description.isEmpty
-                          ? 'No description yet'
-                          : task.description,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                ],
+            const SizedBox(height: 12),
+            // Title
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                hintText: 'Task title',
+                prefixIcon: Icon(Icons.title),
               ),
+              onSubmitted: (_) => _saveAll(),
             ),
-          ),
-          const SizedBox(height: 16),
-          // Attachments section placeholder
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Attachments',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'No attachments yet',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            // Assignee
+            TextField(
+              controller: _assigneeController,
+              decoration: const InputDecoration(
+                labelText: 'Assignee',
+                hintText: 'Username',
+                prefixIcon: Icon(Icons.person),
+              ),
+              onSubmitted: (_) => _saveAssignee(),
+            ),
+            const SizedBox(height: 12),
+            // Tags
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...task.tags.map((tag) => TagChip(label: tag)),
+                if (_isEditing)
                   OutlinedButton.icon(
-                    onPressed: () async {
-                      // File picker integration
+                    onPressed: () {
+                      // Add tag logic
                     },
-                    icon: const Icon(Icons.attach_file),
-                    label: const Text('Upload File'),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Tag'),
                   ),
-                ],
-              ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCommentsTab(dynamic task) {
-    return Column(
-      children: [
-        Expanded(
-          child: CommentThread(
-            projectId: widget.projectId,
-            taskNumber: widget.taskNumber,
-          ),
+  Widget _buildDescriptionCard(dynamic task) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Description',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                if (_isEditing)
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _isEditing = false);
+                      _descriptionController.text = task.description;
+                    },
+                    child: const Text('Cancel'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_isEditing)
+              SizedBox(
+                height: 300,
+                child: MarkdownEditor(
+                  controller: _descriptionController,
+                  placeholder: 'Enter description (Markdown supported)',
+                ),
+              )
+            else
+              SelectableText(
+                task.description.isEmpty
+                    ? 'No description yet'
+                    : task.description,
+                style: const TextStyle(fontSize: 14),
+              ),
+          ],
         ),
-        const Divider(height: 1),
+      ),
+    );
+  }
+
+  Widget _buildCommentsSection(dynamic task) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Comments',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        CommentThread(
+          projectId: widget.projectId,
+          taskNumber: widget.taskNumber,
+        ),
         CommentEditor(
           projectId: widget.projectId,
           taskNumber: widget.taskNumber,
