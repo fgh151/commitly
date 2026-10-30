@@ -35,15 +35,23 @@ class _CommentEditorState extends ConsumerState<CommentEditor> {
     setState(() => _isSending = true);
 
     try {
+      // Get current user's name from auth state
+      final authState = ref.read(authStateProvider);
+      final userName = authState.currentUserName ?? 'user';
+
       final repo = ref.read(taskRepositoryProvider);
       await repo.addComment(
         widget.projectId,
         widget.taskNumber,
         _controller.text.trim(),
-        'user', // TODO: Get current user
+        userName,
       );
       if (mounted) {
-        widget.onSent();
+        // Refresh comment cache
+        await ref.read(commentCacheProvider.notifier).refresh(
+          widget.projectId,
+          widget.taskNumber,
+        );
         _controller.clear();
       }
     } catch (e) {

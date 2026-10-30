@@ -12,6 +12,7 @@ import '../../data/services/git_service_factory.dart';
 import '../../data/models/git_service_config.dart';
 import '../../data/models/project.dart';
 import '../../data/models/task.dart';
+import '../../data/models/comment.dart';
 
 // Repositories
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -25,12 +26,14 @@ class AuthState {
   final AuthStatus status;
   final GitServiceConfig? config;
   final GitService? gitService;
+  final String? currentUserName;
   final String? error;
 
   const AuthState({
     this.status = AuthStatus.unknown,
     this.config,
     this.gitService,
+    this.currentUserName,
     this.error,
   });
 
@@ -38,12 +41,14 @@ class AuthState {
     AuthStatus? status,
     GitServiceConfig? config,
     GitService? gitService,
+    String? currentUserName,
     String? error,
   }) {
     return AuthState(
       status: status ?? this.status,
       config: config ?? this.config,
       gitService: gitService ?? this.gitService,
+      currentUserName: currentUserName ?? this.currentUserName,
       error: error ?? this.error,
     );
   }
@@ -71,10 +76,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
           final isValid = await repo.validateCredentials(config, pat);
           if (isValid) {
             final gitService = GitServiceFactory.create(config, pat);
+            // Wait a moment for committer info to be fetched
+            await Future.delayed(const Duration(milliseconds: 500));
+            final userName = gitService.committerName;
             state = state.copyWith(
               status: AuthStatus.authenticated,
               config: config,
               gitService: gitService,
+              currentUserName: userName,
               error: null,
             );
             print('✅ Credentials restored successfully');
@@ -87,10 +96,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
           // If validation fails (network issue), still restore but warn
           print('⚠️ Could not validate token: $e');
           final gitService = GitServiceFactory.create(config, pat);
+          await Future.delayed(const Duration(milliseconds: 500));
+          final userName = gitService.committerName;
           state = state.copyWith(
             status: AuthStatus.authenticated,
             config: config,
             gitService: gitService,
+            currentUserName: userName,
             error: 'Token not validated (offline mode)',
           );
         }
@@ -144,11 +156,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await repo.saveConfig(config, pat);
 
       final gitService = GitServiceFactory.create(config, pat);
+      await Future.delayed(const Duration(milliseconds: 500));
+      final userName = gitService.committerName;
 
       state = state.copyWith(
         status: AuthStatus.authenticated,
         config: config,
         gitService: gitService,
+        currentUserName: userName,
         error: null,
       );
     } on AuthException catch (e) {
@@ -412,6 +427,63 @@ final tasksProvider = FutureProvider.family<List<Task>, String>((ref, projectId)
 // Convenience provider to watch cached tasks for a specific project
 final cachedTasksProvider = Provider.family<AsyncValue<List<Task>>, String>((ref, projectId) {
   return ref.watch(taskCacheProvider)[projectId] ?? const AsyncValue.loading();
+});
+
+// Comments
+class CommentCache extends StateNotifier<Map<String, AsyncValue<List<Comment>>>> {
+  final Ref _ref;
+
+  CommentCache(this._ref) : super({});
+
+  AsyncValue<List<Comment>> getCommentState(String key) {
+    return state[key] ?? const AsyncValue.loading();
+  }
+
+  Future<void> load(String projectId, int taskNumber) async {
+    final key = '$projectId/$taskNumber';
+    state = {...state, key: const AsyncValue.loading()};
+    try {
+      final authState = _ref.read(authStateProvider);
+      if (authState.gitService == null) {
+        state = {...state, key: AsyncValue.error('Not authenticated', StackTrace.current)};
+        return;
+      }
+      final repo = TaskRepository(authState.gitService!);
+      final comments = await repo.listComments(projectId, taskNumber);
+      state = {...state, key: AsyncValue.data(comments)};
+    } catch (e, st) {
+      state = {...state, key: AsyncValue.error(e, st)};
+    }
+  }
+
+  Future<void> refresh(String projectId, int taskNumber) async {
+    final key = '$projectId/$taskNumber';
+    state = {...state, key: const AsyncValue.loading()};
+    try {
+      final authState = _ref.read(authStateProvider);
+      if (authState.gitService == null) {
+        state = {...state, key: AsyncValue.error('Not authenticated', StackTrace.current)};
+        return;
+      }
+      final repo = TaskRepository(authState.gitService!);
+      final comments = await repo.listComments(projectId, taskNumber);
+      state = {...state, key: AsyncValue.data(comments)};
+    } catch (e, st) {
+      state = {...state, key: AsyncValue.error(e, st)};
+    }
+  }
+
+  void clear() {
+    state = {};
+  }
+}
+
+final commentCacheProvider = StateNotifierProvider<CommentCache, Map<String, AsyncValue<List<Comment>>>>((ref) {
+  return CommentCache(ref);
+});
+
+final cachedCommentsProvider = Provider.family<AsyncValue<List<Comment>>, String>((ref, key) {
+  return ref.watch(commentCacheProvider)[key] ?? const AsyncValue.loading();
 });
 
 final taskDetailProvider = FutureProvider.family<Task?, String>((ref, projectId) async {

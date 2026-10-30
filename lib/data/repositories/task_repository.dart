@@ -159,23 +159,20 @@ class TaskRepository {
   Future<List<Comment>> listComments(String projectId, int taskNumber) async {
     final commentsData = await _gitService.listComments(projectId, taskNumber);
     final comments = <Comment>[];
+    final paddedNumber = taskNumber.toString().padLeft(3, '0');
 
     for (final data in commentsData) {
       final number = data['number'] as int? ?? 0;
-      final path = data['path'] as String? ?? '';
-
-      // Extract comment number from filename
-      final commentNum = int.tryParse(
-        path.split('/').lastOrNull?.replaceAll('.md', '') ?? '',
-      ) ??
-          number;
+      final content = data['content'] as String? ?? '';
+      final author = data['author'] as String? ?? 'Unknown';
+      final dateStr = data['date'] as String?;
 
       comments.add(Comment(
-        number: commentNum,
-        content: '', // Will be fetched separately
-        author: '',
-        createdAt: DateTime.now(),
-        taskNumber: taskNumber.toString().padLeft(3, '0'),
+        number: number,
+        content: content,
+        author: author,
+        createdAt: DateTime.tryParse(dateStr ?? '') ?? DateTime.now(),
+        taskNumber: paddedNumber,
       ));
     }
 

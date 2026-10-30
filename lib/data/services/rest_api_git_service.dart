@@ -42,6 +42,20 @@ class RestApiGitService implements GitService {
               type: DioExceptionType.badResponse,
             ),
           );
+        } else if (error.response?.statusCode == 422) {
+          // 422 = Unprocessable Entity - usually branch name or commit validation
+          final errorData = error.response?.data as Map<String, dynamic>?;
+          final message = errorData?['message'] as String? ?? 'Validation failed';
+          print('❌ 422 Error: $message');
+          print('   Response: ${error.response?.data}');
+          handler.reject(
+            DioException(
+              requestOptions: error.requestOptions,
+              message: 'Commit validation failed: $message',
+              type: DioExceptionType.badResponse,
+              response: error.response,
+            ),
+          );
         } else if (error.type == DioExceptionType.connectionTimeout ||
             error.type == DioExceptionType.sendTimeout ||
             error.type == DioExceptionType.receiveTimeout) {
@@ -73,10 +87,29 @@ class RestApiGitService implements GitService {
     }
   }
 
+  @override
+  String? get committerName => _committerName;
+
   Map<String, String> get _committer => {
         'name': _committerName ?? 'Commitly',
         'email': _committerEmail ?? 'commitly@openitstudio.com',
       };
+
+  String? _defaultBranch;
+
+  Future<String> _getBranch(String projectId) async {
+    // Return cached branch if available
+    if (_defaultBranch != null) return _defaultBranch!;
+
+    final repo = _getOwnerAndRepo(projectId);
+    try {
+      final response = await _dio.get('/repos/$repo');
+      _defaultBranch = response.data['default_branch'] as String? ?? 'main';
+      return _defaultBranch!;
+    } on DioException {
+      return _config.customGitPath ?? 'main';
+    }
+  }
 
   /// Fetch the authenticated user's name and email from the Git service.
   Future<void> _fetchCommitterInfo() async {
@@ -279,12 +312,13 @@ class RestApiGitService implements GitService {
 
     final encoded = base64Encode(utf8.encode(jsonEncode(metadata)));
 
+    final branch = await _getBranch(projectId);
     await _dio.put(
       '/repos/$repo/contents/tasks/$folderName/metadata.json',
       data: {
         'message': 'Update metadata for task $taskNumber',
         'content': encoded,
-        'branch': _config.customGitPath ?? 'main',
+        'branch': branch,
         'committer': _committer,
         if (sha != null) 'sha': sha,
       },
@@ -330,13 +364,14 @@ class RestApiGitService implements GitService {
     }
 
     final encoded = base64Encode(utf8.encode(content));
+    final branch = await _getBranch(projectId);
 
     await _dio.put(
       '/repos/$repo/contents/tasks/$folderName/description.md',
       data: {
         'message': 'Update description for task $taskNumber',
         'content': encoded,
-        'branch': _config.customGitPath ?? 'main',
+        'branch': branch,
         'committer': _committer,
         if (sha != null) 'sha': sha,
       },
@@ -360,10 +395,51 @@ class RestApiGitService implements GitService {
       if (response.data is List) {
         for (final item in response.data) {
           final name = item['name'] as String? ?? '';
-          comments.add({
-            'number': int.tryParse(name) ?? 0,
-            'path': item['path'] as String? ?? '',
-          });
+          final number = int.tryParse(name) ?? 0;
+          // Read each comment file to get content, author, date
+          try {
+            final contentPath = 'tasks/$folderName/comments/$name';
+            final contentResponse = await _dio.get(
+              '/repos/$repo/contents/$contentPath',
+            );
+            var content = (contentResponse.data['content'] as String?) ?? '';
+            content = content
+                .replaceAll('-', '+')
+                .replaceAll('_', '/')
+                .replaceAll(RegExp(r'\s+'), '');
+            final decoded = utf8.decode(base64Decode(content));
+            // Parse YAML frontmatter
+            String author = 'Unknown';
+            DateTime date = DateTime.now();
+            String body = decoded;
+            final yamlMatch = RegExp(r'^---\n(.*?)\n---').firstMatch(decoded);
+            if (yamlMatch != null) {
+              final yaml = yamlMatch.group(1)!;
+              for (final line in yaml.split('\n')) {
+                if (line.startsWith('author: ')) {
+                  author = line.substring(8).trim();
+                } else if (line.startsWith('date: ')) {
+                  date = DateTime.tryParse(line.substring(6).trim()) ?? DateTime.now();
+                }
+              }
+              body = decoded.substring(yamlMatch.end).trim();
+            }
+            comments.add({
+              'number': number,
+              'content': body,
+              'author': author,
+              'date': date.toIso8601String(),
+              'path': contentPath,
+            });
+          } on DioException {
+            comments.add({
+              'number': number,
+              'content': '',
+              'author': 'Unknown',
+              'date': DateTime.now().toIso8601String(),
+              'path': 'tasks/$folderName/comments/$name',
+            });
+          }
         }
       }
     } on DioException catch (e) {
@@ -385,31 +461,54 @@ class RestApiGitService implements GitService {
     final repo = _getOwnerAndRepo(projectId);
     final folderName = taskNumber.toString().padLeft(3, '0');
 
-    // Get next comment number
+    // Get existing comment numbers by listing the comments folder
     int commentNumber = 1;
     try {
-      final existing = await listComments(projectId, taskNumber);
-      if (existing.isNotEmpty) {
-        commentNumber =
-            existing.map((e) => e['number'] as int).reduce((a, b) => a > b ? a : b) +
-                1;
+      final response = await _dio.get(
+        '/repos/$repo/contents/tasks/$folderName/comments',
+      );
+      if (response.data is List) {
+        int maxNum = 0;
+        for (final item in response.data) {
+          final name = (item['name'] as String? ?? '').replaceAll('.md', '');
+          final num = int.tryParse(name);
+          if (num != null && num > maxNum) maxNum = num;
+        }
+        commentNumber = maxNum + 1;
+        print('📝 Found $maxNum existing comments, creating #$commentNumber');
       }
     } on DioException {
-      // Comments folder doesn't exist yet
+      print('📝 Comments folder does not exist yet, starting from #1');
+      // Comments folder doesn't exist yet, start from 1
     }
 
     final padded = commentNumber.toString().padLeft(3, '0');
     final commentContent =
         '---\nauthor: $author\ndate: ${DateTime.now().toUtc().toIso8601String()}\n---\n\n$content';
     final encoded = base64Encode(utf8.encode(commentContent));
+    final branch = await _getBranch(projectId);
+
+    // Check if the target file already exists (from a previous failed attempt)
+    String? sha;
+    try {
+      final readResponse = await _dio.get(
+        '/repos/$repo/contents/tasks/$folderName/comments/$padded.md',
+      );
+      sha = readResponse.data['sha'] as String?;
+      print('⚠️ Comment #$commentNumber already exists, will update');
+    } on DioException {
+      print('📝 Creating new comment #$commentNumber');
+      // File doesn't exist yet, will create new
+    }
 
     await _dio.put(
       '/repos/$repo/contents/tasks/$folderName/comments/$padded.md',
       data: {
         'message': 'Add comment to task $taskNumber',
         'content': encoded,
-        'branch': _config.customGitPath ?? 'main',
+        'branch': branch,
         'committer': _committer,
+        if (sha != null) 'sha': sha,
       },
     );
   }
@@ -429,13 +528,14 @@ class RestApiGitService implements GitService {
     );
 
     final sha = response.data['sha'] as String?;
+    final branch = await _getBranch(projectId);
 
     await _dio.delete(
       '/repos/$repo/contents/tasks/$folderName/comments/$padded.md',
       data: {
         'message': 'Delete comment $commentNumber from task $taskNumber',
         'sha': sha,
-        'branch': _config.customGitPath ?? 'main',
+        'branch': branch,
         'committer': _committer,
       },
     );
@@ -451,13 +551,14 @@ class RestApiGitService implements GitService {
     final repo = _getOwnerAndRepo(projectId);
     final folderName = taskNumber.toString().padLeft(3, '0');
     final encoded = base64Encode(data);
+    final branch = await _getBranch(projectId);
 
     await _dio.put(
       '/repos/$repo/contents/tasks/$folderName/attachments/$fileName',
       data: {
         'message': 'Upload attachment $fileName to task $taskNumber',
         'content': encoded,
-        'branch': _config.customGitPath ?? 'main',
+        'branch': branch,
         'committer': _committer,
       },
     );

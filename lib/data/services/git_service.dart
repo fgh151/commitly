@@ -6,6 +6,9 @@ import '../models/git_service_config.dart';
 /// Abstract interface for all Git operations.
 /// Implementations can use REST API (GitHub/GitLab/Gitea) or libgit2.
 abstract class GitService {
+  /// The authenticated user's display name for commits
+  String? get committerName;
+
   /// Initialize the service with config and PAT
   Future<void> initialize(GitServiceConfig config, String pat);
 
