@@ -11,6 +11,8 @@ class RestApiGitService implements GitService {
   final GitServiceConfig _config;
   final String _pat;
   late final Dio _dio;
+  String? _committerName;
+  String? _committerEmail;
 
   RestApiGitService(this._config, this._pat) {
     _dio = Dio(BaseOptions(
@@ -18,6 +20,13 @@ class RestApiGitService implements GitService {
       headers: _buildHeaders(),
       contentType: 'application/json',
     ));
+
+    // Fetch committer info eagerly; if it fails, defaults are used
+    _fetchCommitterInfo().then((_) {
+      // committer info ready
+    }).catchError((_) {
+      // will use defaults
+    });
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
@@ -64,6 +73,61 @@ class RestApiGitService implements GitService {
     }
   }
 
+  Map<String, String> get _committer => {
+        'name': _committerName ?? 'Commitly',
+        'email': _committerEmail ?? 'commitly@openitstudio.com',
+      };
+
+  /// Fetch the authenticated user's name and email from the Git service.
+  Future<void> _fetchCommitterInfo() async {
+    try {
+      final response = await _dio.get('/user');
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        switch (_config.type) {
+          case GitServiceType.github:
+            _committerName = (data['name'] as String?) ??
+                (data['login'] as String?) ??
+                'User';
+            _committerEmail = data['email'] as String?;
+            // GitHub may not expose email publicly, fall back to login-based email
+            if (_committerEmail == null || _committerEmail!.isEmpty) {
+              _committerEmail =
+                  '${_committerName?.toLowerCase().replaceAll(' ', '.')}@users.noreply.github.com';
+            }
+            break;
+          case GitServiceType.gitlab:
+            _committerName = (data['name'] as String?) ??
+                (data['username'] as String?) ??
+                'User';
+            _committerEmail = data['email'] as String? ??
+                '${data['username']}@users.noreply.gitlab.com';
+            break;
+          case GitServiceType.gitea:
+            _committerName = (data['full_name'] as String?) ??
+                (data['username'] as String?) ??
+                'User';
+            _committerEmail = data['email'] as String? ??
+                '${data['username']}@users.noreply.gitea.com';
+            break;
+          case GitServiceType.custom:
+            _committerName = (data['name'] as String?) ??
+                (data['login'] as String?) ??
+                'User';
+            _committerEmail =
+                data['email'] as String? ?? 'user@example.com';
+            break;
+        }
+        print('👤 Committer: $_committerName <$_committerEmail>');
+      }
+    } catch (e) {
+      print('⚠️ Could not fetch committer info: $e');
+      // Fall back to defaults
+      _committerName = 'Commitly';
+      _committerEmail = 'commitly@openitstudio.com';
+    }
+  }
+
   String _getOwnerAndRepo(String projectId, {String separator = '/'}) {
     // URL-decode the projectId (e.g., 'owner%2Frepo' -> 'owner/repo')
     final decoded = Uri.decodeComponent(projectId);
@@ -75,7 +139,7 @@ class RestApiGitService implements GitService {
 
   @override
   Future<void> initialize(GitServiceConfig config, String pat) async {
-    // Already initialized in constructor
+    await _fetchCommitterInfo();
   }
 
   @override
@@ -221,10 +285,7 @@ class RestApiGitService implements GitService {
         'message': 'Update metadata for task $taskNumber',
         'content': encoded,
         'branch': _config.customGitPath ?? 'main',
-        'committer': {
-          'name': 'Commitly',
-          'email': 'commitly@openitstudio.com',
-        },
+        'committer': _committer,
         if (sha != null) 'sha': sha,
       },
     );
@@ -276,10 +337,7 @@ class RestApiGitService implements GitService {
         'message': 'Update description for task $taskNumber',
         'content': encoded,
         'branch': _config.customGitPath ?? 'main',
-        'committer': {
-          'name': 'Commitly',
-          'email': 'commitly@openitstudio.com',
-        },
+        'committer': _committer,
         if (sha != null) 'sha': sha,
       },
     );
@@ -351,10 +409,7 @@ class RestApiGitService implements GitService {
         'message': 'Add comment to task $taskNumber',
         'content': encoded,
         'branch': _config.customGitPath ?? 'main',
-        'committer': {
-          'name': 'Commitly',
-          'email': 'commitly@openitstudio.com',
-        },
+        'committer': _committer,
       },
     );
   }
@@ -381,10 +436,7 @@ class RestApiGitService implements GitService {
         'message': 'Delete comment $commentNumber from task $taskNumber',
         'sha': sha,
         'branch': _config.customGitPath ?? 'main',
-        'committer': {
-          'name': 'Commitly',
-          'email': 'commitly@openitstudio.com',
-        },
+        'committer': _committer,
       },
     );
   }
@@ -406,10 +458,7 @@ class RestApiGitService implements GitService {
         'message': 'Upload attachment $fileName to task $taskNumber',
         'content': encoded,
         'branch': _config.customGitPath ?? 'main',
-        'committer': {
-          'name': 'Commitly',
-          'email': 'commitly@openitstudio.com',
-        },
+        'committer': _committer,
       },
     );
   }
