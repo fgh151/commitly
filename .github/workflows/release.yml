@@ -38,6 +38,15 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
+      - name: Fix Android SDK versions for pub-cache plugins
+        run: |
+          # Update flutter_plugin_android_lifecycle to compileSdk 36
+          find ~/.pub-cache -name "build.gradle" -path "*/flutter_plugin_android_lifecycle*/android/build.gradle" -exec sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 36/g' {} \;
+          find ~/.pub-cache -name "build.gradle.kts" -path "*/flutter_plugin_android_lifecycle*/android/build.gradle.kts" -exec sed -i 's/flutter.compileSdkVersion/36/g' {} \;
+          
+          # Update file_picker to compileSdk 36
+          find ~/.pub-cache -name "build.gradle" -path "*/file_picker*/android/build.gradle" -exec sed -i 's/compileSdk 34/compileSdk 36/g' {} \;
+
       - name: Build APK
         run: flutter build apk --release
 
