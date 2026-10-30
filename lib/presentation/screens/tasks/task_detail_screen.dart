@@ -38,8 +38,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen>
     _titleController = TextEditingController();
     _assigneeController = TextEditingController();
     _descriptionController = TextEditingController();
-    // Auto-enter edit mode for new tasks (empty description)
-    _isEditing = true;
+    // Start in view mode
+    _isEditing = false;
   }
 
   @override
