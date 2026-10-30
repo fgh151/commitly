@@ -23,20 +23,15 @@ class AuthRepository {
   static const _keyConfig = 'git_service_config';
   static const _keyPat = 'git_pat';
 
-  /// Simple obfuscation for dev purposes only.
+  /// Simple storage for dev purposes only.
   /// NOT secure - for production use Keychain/Keystore.
+  /// For dev, we store the raw token directly.
   String _obfuscate(String input) {
-    // Base64 encode for dev (easily reversible)
-    return base64.encode(utf8.encode(input));
+    return input; // Store as-is for dev
   }
 
   String _deobfuscate(String input) {
-    // Base64 decode
-    try {
-      return utf8.decode(base64.decode(input));
-    } catch (e) {
-      return input;
-    }
+    return input; // Return as-is for dev
   }
 
   /// Save service config and PAT

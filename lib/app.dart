@@ -15,110 +15,100 @@ import 'data/models/git_service_config.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-final _appProvider = Provider<GoRouter>(
-  (ref) => throw UnimplementedError(),
+final GoRouter _router = GoRouter(
+  navigatorKey: _rootNavigatorKey,
+  initialLocation: '/auth',
+  redirect: (context, state) {
+    final ref = ProviderScope.containerOf(context, listen: false);
+    final authState = ref.read(authStateProvider);
+    final isAuthenticated = authState.status == AuthStatus.authenticated;
+    final isAuthRoute = state.matchedLocation == '/auth' ||
+        state.matchedLocation == '/auth/form';
+
+    if (isAuthenticated && isAuthRoute) {
+      return '/projects';
+    }
+    if (!isAuthenticated && !isAuthRoute) {
+      return '/auth';
+    }
+    return null;
+  },
+  routes: [
+    GoRoute(
+      path: '/auth',
+      name: 'auth',
+      builder: (context, state) => const AuthSelectionScreen(),
+      routes: [
+        GoRoute(
+          path: 'form',
+          name: 'auth-form',
+          builder: (context, state) {
+            final serviceParam = state.uri.queryParameters['service'];
+            final serviceType = serviceParam != null
+                ? GitServiceType.values.firstWhere(
+                    (e) => e.name == serviceParam,
+                    orElse: () => GitServiceType.github,
+                  )
+                : GitServiceType.github;
+            return AuthFormScreen(serviceType: serviceType);
+          },
+        ),
+      ],
+    ),
+    ShellRoute(
+      navigatorKey: _shellNavigatorKey,
+      builder: (context, state, child) => MainScaffold(child: child),
+      routes: [
+        GoRoute(
+          path: '/projects',
+          name: 'projects',
+          builder: (context, state) => const ProjectListScreen(),
+          routes: [
+            GoRoute(
+              path: 'add',
+              name: 'add-project',
+              builder: (context, state) => const AddProjectScreen(),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/projects/:projectId/tasks',
+          name: 'task-list',
+          builder: (context, state) => TaskListScreen(
+            projectId: state.pathParameters['projectId']!,
+          ),
+          routes: [
+            GoRoute(
+              path: ':taskNumber',
+              name: 'task-detail',
+              builder: (context, state) => TaskDetailScreen(
+                projectId: state.pathParameters['projectId']!,
+                taskNumber: int.parse(state.pathParameters['taskNumber']!),
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/sync',
+          name: 'sync',
+          builder: (context, state) => const SyncStatusScreen(),
+        ),
+      ],
+    ),
+  ],
+  errorBuilder: (context, state) => const ErrorScreen(),
 );
 
-GoRouter createRouter(WidgetRef ref) {
-  return GoRouter(
-    navigatorKey: _rootNavigatorKey,
-    initialLocation: '/auth',
-    redirect: (context, state) {
-      final authState = ref.read(authStateProvider);
-      final isAuthenticated = authState.status == AuthStatus.authenticated;
-      final isAuthRoute = state.matchedLocation == '/auth' ||
-          state.matchedLocation == '/auth/form';
-
-      // Если уже авторизован и на auth route — перенаправить на проекты
-      if (isAuthenticated && isAuthRoute) {
-        return '/projects';
-      }
-
-      // Если не авторизован и не на auth route — перенаправить на auth
-      if (!isAuthenticated && !isAuthRoute) {
-        return '/auth';
-      }
-
-      // Остаёмся на текущей странице
-      return null;
-    },
-    routes: [
-      GoRoute(
-        path: '/auth',
-        name: 'auth',
-        builder: (context, state) => const AuthSelectionScreen(),
-        routes: [
-          GoRoute(
-            path: 'form',
-            name: 'auth-form',
-            builder: (context, state) {
-              final serviceParam = state.uri.queryParameters['service'];
-              final serviceType = serviceParam != null
-                  ? GitServiceType.values.firstWhere(
-                      (e) => e.name == serviceParam,
-                      orElse: () => GitServiceType.github,
-                    )
-                  : GitServiceType.github;
-              return AuthFormScreen(serviceType: serviceType);
-            },
-          ),
-        ],
-      ),
-      ShellRoute(
-        navigatorKey: _shellNavigatorKey,
-        builder: (context, state, child) => MainScaffold(child: child),
-        routes: [
-          GoRoute(
-            path: '/projects',
-            name: 'projects',
-            builder: (context, state) => const ProjectListScreen(),
-            routes: [
-              GoRoute(
-                path: 'add',
-                name: 'add-project',
-                builder: (context, state) => const AddProjectScreen(),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: '/projects/:projectId/tasks',
-            name: 'task-list',
-            builder: (context, state) => TaskListScreen(
-              projectId: state.pathParameters['projectId']!,
-            ),
-            routes: [
-              GoRoute(
-                path: ':taskNumber',
-                name: 'task-detail',
-                builder: (context, state) => TaskDetailScreen(
-                  projectId: state.pathParameters['projectId']!,
-                  taskNumber: int.parse(state.pathParameters['taskNumber']!),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: '/sync',
-            name: 'sync',
-            builder: (context, state) => const SyncStatusScreen(),
-          ),
-        ],
-      ),
-    ],
-    errorBuilder: (context, state) => const ErrorScreen(),
-  );
-}
-
-class CommitlyApp extends ConsumerWidget {
+class CommitlyApp extends StatelessWidget {
   const CommitlyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Commitly',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
-      routerConfig: createRouter(ref),
+      routerConfig: _router,
     );
   }
 
