@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/widgets/common/task_card.dart';
 
@@ -24,22 +25,23 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final projectsAsync = ref.watch(projectCacheProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Projects'),
+        title: Text(l10n.projectsTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: l10n.refresh,
             onPressed: () async {
               await ref.read(projectCacheProvider.notifier).forceRefresh();
             },
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Disconnect',
+            tooltip: l10n.disconnect,
             onPressed: () async {
               await ref.read(authStateProvider.notifier).disconnect();
               if (context.mounted) context.go('/auth');
@@ -50,17 +52,17 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
       body: projectsAsync.when(
         data: (projects) {
           if (projects.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.folder_open, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No projects found', style: TextStyle(fontSize: 18)),
-                  SizedBox(height: 8),
+                  const Icon(Icons.folder_open, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(l10n.noProjectsFound, style: const TextStyle(fontSize: 18)),
+                  const SizedBox(height: 8),
                   Text(
-                    'Add a repository to get started',
-                    style: TextStyle(color: Colors.grey),
+                    l10n.addRepository,
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 ],
               ),
@@ -75,7 +77,7 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
               return TaskCard(
                 number: project.id,
                 title: project.fullName,
-                subtitle: project.description ?? 'No description',
+                subtitle: project.description ?? '',
                 assignee: null,
                 tags: [],
                 onTap: () {
@@ -94,7 +96,7 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/projects/add'),
         icon: const Icon(Icons.add),
-        label: const Text('Add Project'),
+        label: Text(l10n.addProject),
       ),
     );
   }

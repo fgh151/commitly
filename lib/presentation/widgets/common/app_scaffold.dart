@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Main application scaffold with bottom navigation bar.
 class MainScaffold extends StatelessWidget {
@@ -13,21 +14,21 @@ class MainScaffold extends StatelessWidget {
       body: child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _getCurrentIndex(context),
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.folder_outlined),
             activeIcon: Icon(Icons.folder),
-            label: 'Projects',
+            label: AppLocalizations.of(context)!.projectsLabel,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.assignment_outlined),
             activeIcon: Icon(Icons.assignment),
-            label: 'Tasks',
+            label: AppLocalizations.of(context)!.tasksLabel,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.sync_outlined),
             activeIcon: Icon(Icons.sync),
-            label: 'Sync',
+            label: AppLocalizations.of(context)!.syncLabel,
           ),
         ],
         onTap: (index) {

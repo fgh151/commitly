@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../presentation/providers/auth_providers.dart';
 import '../../../presentation/widgets/common/task_card.dart';
 
@@ -48,17 +49,18 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final tasksAsync = ref.watch(taskCacheProvider)[widget.projectId] ?? const AsyncValue.loading();
     final projectFullName = widget.projectId.split('/').last;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tasks: $projectFullName'),
+        title: Text(l10n.taskListTitle(projectFullName)),
         actions: [
           if (_hasActiveFilters())
             IconButton(
               icon: const Icon(Icons.clear_all),
-              tooltip: 'Clear filters',
+              tooltip: l10n.clearFilters,
               onPressed: _clearFilters,
             ),
           IconButton(
@@ -87,11 +89,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   child: TextField(
                     controller: _filterNumber,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      hintText: '# Number',
-                      prefixIcon: Icon(Icons.numbers),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
+                    decoration: InputDecoration(
+                      hintText: l10n.filterNumber,
+                      prefixIcon: const Icon(Icons.numbers),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
@@ -105,11 +107,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 Expanded(
                   child: TextField(
                     controller: _filterTitle,
-                    decoration: const InputDecoration(
-                      hintText: 'Search by title...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
+                    decoration: InputDecoration(
+                      hintText: l10n.searchByTitle,
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
@@ -155,14 +157,14 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _hasActiveFilters()
-                              ? 'No tasks match filters'
-                              : 'No tasks yet',
+                              ? l10n.noTasksMatchFilters
+                              : l10n.noTasksYet,
                           style: const TextStyle(fontSize: 16),
                         ),
                         if (_hasActiveFilters())
                           TextButton(
                             onPressed: _clearFilters,
-                            child: const Text('Clear filters'),
+                            child: Text(l10n.clearFilters),
                           ),
                       ],
                     ),
@@ -225,7 +227,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
           }
         },
         icon: const Icon(Icons.add),
-        label: const Text('New Task'),
+        label: Text(l10n.newTask),
       ),
     );
   }

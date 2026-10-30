@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Screen for selecting a Git service to connect to.
 class AuthSelectionScreen extends StatelessWidget {
@@ -7,9 +8,11 @@ class AuthSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Connect to Git Service'),
+        title: Text(l10n.authSelectionTitle),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -20,28 +23,28 @@ class AuthSelectionScreen extends StatelessWidget {
             _ServiceCard(
               icon: Icons.code,
               title: 'GitHub',
-              subtitle: 'Connect to GitHub.com',
+              subtitle: l10n.authSelectionGitHubDesc,
               onTap: () => context.go('/auth/form?service=github'),
             ),
             const SizedBox(height: 16),
             _ServiceCard(
               icon: Icons.language,
               title: 'GitLab',
-              subtitle: 'Connect to GitLab.com',
+              subtitle: l10n.authSelectionGitLabDesc,
               onTap: () => context.go('/auth/form?service=gitlab'),
             ),
             const SizedBox(height: 16),
             _ServiceCard(
               icon: Icons.storage,
-              title: 'Gitea / GitVerse',
-              subtitle: 'Connect to Gitea instance',
+              title: 'Gitea',
+              subtitle: l10n.authSelectionGiteaDesc,
               onTap: () => context.go('/auth/form?service=gitea'),
             ),
             const SizedBox(height: 16),
             _ServiceCard(
               icon: Icons.settings_input_component,
-              title: 'Custom Service',
-              subtitle: 'Connect to a custom Git service',
+              title: l10n.authSelectionCustom,
+              subtitle: l10n.authSelectionCustomDesc,
               onTap: () => context.go('/auth/form?service=custom'),
             ),
           ],

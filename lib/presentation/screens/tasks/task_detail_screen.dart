@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/task.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../presentation/widgets/task/comment_thread.dart';
 import '../../../presentation/widgets/task/comment_editor.dart';
 import '../../../presentation/widgets/task/markdown_editor.dart';
@@ -50,6 +51,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Future<void> _saveAll() async {
     setState(() => _isSaving = true);
     try {
+      final l10n = AppLocalizations.of(context)!;
       final repo = ref.read(taskRepositoryProvider);
       final title = _titleController.text.isEmpty
           ? 'Task ${widget.taskNumber}'
@@ -75,7 +77,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         await ref.read(taskCacheProvider.notifier).refresh(widget.projectId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Task saved')),
+            SnackBar(content: Text(l10n.taskSaved)),
           );
           setState(() => _isEditing = false);
         }
@@ -84,9 +86,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       print('❌ Save error: $e');
       print('   Stack: $stack');
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Save failed: $e'),
+            content: Text('${l10n.saveFailed}: $e'),
             duration: const Duration(seconds: 10),
           ),
         );
@@ -97,6 +100,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   Future<void> _saveAssignee() async {
     try {
+      final l10n = AppLocalizations.of(context)!;
       final repo = ref.read(taskRepositoryProvider);
       await repo.updateMetadata(
         widget.projectId,
@@ -105,13 +109,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Assignee updated')),
+          SnackBar(content: Text(l10n.assigneeUpdated)),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e')),
+          SnackBar(content: Text('${l10n.updateFailed}: $e')),
         );
       }
     }
@@ -119,6 +124,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final tasksAsync = ref.watch(tasksProvider(widget.projectId));
 
     return tasksAsync.when(
@@ -153,20 +159,20 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save, size: 18),
-                  label: const Text('Save'),
+                  label: Text(l10n.save),
                   onPressed: _isSaving ? null : _saveAll,
                 ),
                 TextButton(
                   onPressed: () {
                     setState(() => _isEditing = false);
                   },
-                  child: const Text('Cancel'),
+                  child: Text(l10n.cancel),
                 ),
               ] else ...[
                 IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () => setState(() => _isEditing = true),
-                  tooltip: 'Edit',
+                  tooltip: l10n.edit,
                 ),
               ],
             ],
@@ -177,13 +183,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Metadata section
-                _buildMetadataCard(task),
+                _buildMetadataCard(task, l10n),
                 const SizedBox(height: 16),
                 // Description
-                _buildDescriptionCard(task),
+                _buildDescriptionCard(task, l10n),
                 const SizedBox(height: 16),
                 // Comments section
-                _buildCommentsSection(task),
+                _buildCommentsSection(task, l10n),
               ],
             ),
           ),
@@ -194,25 +200,25 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     );
   }
 
-  Widget _buildMetadataCard(dynamic task) {
+  Widget _buildMetadataCard(dynamic task, AppLocalizations l10n) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Metadata',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Text(
+              l10n.metadata,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             // Title
             TextField(
               controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Title',
-                hintText: 'Task title',
-                prefixIcon: Icon(Icons.title),
+              decoration: InputDecoration(
+                labelText: l10n.title,
+                hintText: l10n.titleHint,
+                prefixIcon: const Icon(Icons.title),
               ),
               onSubmitted: (_) => _saveAll(),
             ),
@@ -220,10 +226,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             // Assignee
             TextField(
               controller: _assigneeController,
-              decoration: const InputDecoration(
-                labelText: 'Assignee',
-                hintText: 'Username',
-                prefixIcon: Icon(Icons.person),
+              decoration: InputDecoration(
+                labelText: l10n.assignee,
+                hintText: l10n.assigneeHint,
+                prefixIcon: const Icon(Icons.person),
               ),
               onSubmitted: (_) => _saveAssignee(),
             ),
@@ -240,7 +246,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       // Add tag logic
                     },
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Tag'),
+                    label: Text(l10n.addTag),
                   ),
               ],
             ),
@@ -250,7 +256,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     );
   }
 
-  Widget _buildDescriptionCard(dynamic task) {
+  Widget _buildDescriptionCard(dynamic task, AppLocalizations l10n) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -260,9 +266,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Description',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  l10n.description,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 if (_isEditing)
                   TextButton(
@@ -270,7 +276,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       setState(() => _isEditing = false);
                       _descriptionController.text = task.description;
                     },
-                    child: const Text('Cancel'),
+                    child: Text(l10n.cancel),
                   ),
               ],
             ),
@@ -280,13 +286,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 height: 300,
                 child: MarkdownEditor(
                   controller: _descriptionController,
-                  placeholder: 'Enter description (Markdown supported)',
+                  placeholder: l10n.descriptionHint,
                 ),
               )
             else
               SelectableText(
                 task.description.isEmpty
-                    ? 'No description yet'
+                    ? l10n.noDescriptionYet
                     : task.description,
                 style: const TextStyle(fontSize: 14),
               ),
@@ -296,13 +302,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     );
   }
 
-  Widget _buildCommentsSection(dynamic task) {
+  Widget _buildCommentsSection(dynamic task, AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Comments',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          l10n.comments,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         CommentThread(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../data/models/git_service_config.dart';
 import '../../../presentation/providers/auth_providers.dart';
 
@@ -55,7 +56,6 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
     final authState = ref.read(authStateProvider);
     if (authState.status == AuthStatus.authenticated) {
       if (mounted) {
-        // Use goNamed with the route name defined in app.dart
         context.goNamed('projects');
       }
     }
@@ -63,11 +63,12 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.serviceType.name.capitalize} Connection'),
+        title: Text('${widget.serviceType.name.capitalize} ${l10n.connect}'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -130,10 +131,10 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
                 ),
               TextFormField(
                 controller: _urlController,
-                decoration: const InputDecoration(
-                  labelText: 'Base URL',
+                decoration: InputDecoration(
+                  labelText: l10n.baseUrl,
                   hintText: 'https://api.github.com',
-                  prefixIcon: Icon(Icons.link),
+                  prefixIcon: const Icon(Icons.link),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'URL is required';
@@ -147,10 +148,10 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
               TextFormField(
                 controller: _patController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Personal Access Token',
+                decoration: InputDecoration(
+                  labelText: l10n.personalAccessToken,
                   hintText: 'ghp_xxxxxxxxxxxx',
-                  prefixIcon: Icon(Icons.key),
+                  prefixIcon: const Icon(Icons.key),
                   helperText:
                       'GitHub: Settings → Developer settings → Personal access tokens',
                 ),
@@ -183,7 +184,7 @@ class _AuthFormScreenState extends ConsumerState<AuthFormScreen> {
                             Text('Connected'),
                           ],
                         )
-                      : const Text('Connect'),
+                      : Text(l10n.connect),
                 ),
               ),
             ],
